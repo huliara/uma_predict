@@ -1,4 +1,7 @@
 from database import Reflected, Base,engine
+import uuid
+from sqlalchemy.orm import Mapped,mapped_column
+from datetime import date
 
 class Race(Reflected,Base):
     __tablename__="jvd_ra"
@@ -9,5 +12,21 @@ class Horse(Reflected,Base):
 class Career(Reflected,Base):
     __tablename__="jvd_se"
 
-
+class Track(Base):
+    __tablename__="track"
+    id:Mapped[uuid.UUID]=mapped_column("id",primary_key=True,default=uuid.uuid4)
+    jra_code:Mapped[str]#東京競馬場なら"05"
+    start_year:Mapped[str]
+    start_date:Mapped[str]
+    end_year:Mapped[str]
+    end_date:Mapped[str]
+    distance:Mapped[str]
+    track_code:Mapped[str]#平地　芝　外回り　など
+    dirt_condition:Mapped[str]
+    turf_condition:Mapped[str]
+    count:Mapped[int]
+    mean:Mapped[float]
+    
+    
+    
 Reflected.prepare(engine)
