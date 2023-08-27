@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine,types
 from sqlalchemy.orm import sessionmaker, scoped_session, DeclarativeBase,Session
 from sqlalchemy.ext.declarative import DeferredReflection
-from env import DB_USER, DB_PASSWORD,  DB_NAME
+from uma_predict.db.env import DB_USER, DB_PASSWORD,  DB_NAME
 import uuid
 
 DATABASE = "postgresql+psycopg2://%s:%s@localhost:5432/%s" % (

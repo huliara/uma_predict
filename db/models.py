@@ -1,6 +1,6 @@
-from database import Reflected, Base,engine
+from uma_predict.db.database import Reflected, Base,engine
 import uuid
-from sqlalchemy.orm import Mapped,mapped_column
+from sqlalchemy.orm import Mapped,mapped_column,relationship
 from datetime import date
 
 class Race(Reflected,Base):
@@ -11,7 +11,7 @@ class Horse(Reflected,Base):
 
 class Career(Reflected,Base):
     __tablename__="jvd_se"
-
+    
 class Track(Base):
     __tablename__="track"
     id:Mapped[uuid.UUID]=mapped_column("id",primary_key=True,default=uuid.uuid4)
