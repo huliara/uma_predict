@@ -6,13 +6,14 @@ import pprint
 db = SessionLocal()
 
 races = db.scalars(
-    select(Race.kyoso_joken_code).filter(
-        Race.kaisai_nen>="2003",
-        Race.keibajo_code>="01",
-        Race.keibajo_code<="10",
-        Race.track_code <= "26",
-        Race.track_code >= "00",
+    select(Career).filter(
+        Career.kaisai_nen=="2006",
+        Career.keibajo_code=="08",
+        Career.kaisai_tsukihi=="0105",
+        Career.race_bango=="11",
+        Career.umaban=="10",
     )
 ).all()
 
-pprint.pprint(set(races))
+for race in races:
+    pprint.pprint(race.__dict__)
