@@ -116,9 +116,8 @@ races = db.scalars(
         Race.track_code <= "26",
         Race.track_code >= "00",
         Race.nyusen_tosu > "03",
-        Race.race_bango == "11",
         Race.kyoso_joken_code != "701",
-    ).limit(1)
+    ).limit(15)
 ).all()
 
 
@@ -140,7 +139,7 @@ def horse_to_list(horse, seinengappi):
 
 
 def chakusa_num(chakusa_list: list):
-    chakusa_num = [1] * 17
+    chakusa_num = [1.0] * 17
     for index, chakusa in enumerate(chakusa_list):
         if chakusa == "D  ":
             chakusa_num[index] = 0.5
@@ -172,15 +171,15 @@ def chakusa_num(chakusa_list: list):
 def rank_probability(
     rank_list: list, chakusa_num: list, limit: int, index_name, column_name
 ):
-    prob_mat = np.zeros((limit, limit))
+    prob_mat = np.zeros((limit+1, limit+1))
     prob_mat[0, 0] = 1
     for i in range(0, limit):
-        for j in range(i, limit - 1):
-            prob_mat[j, i] *= chakusa_num[j]
+        for j in range(i, limit ):
             prob_mat[j + 1, i] = prob_mat[j, i] * (1 - chakusa_num[j])
+            prob_mat[j, i] = prob_mat[j,i]*chakusa_num[j]
         prob_mat[i, i + 1 :] = prob_mat[i + 1 :, i]
-        if i < limit - 1:
-            prob_mat[i + 1, i + 1] = 1 - np.sum(prob_mat[i + 1, :i], axis=0)
+        prob_mat[i + 1, i + 1] = 1 - prob_mat[i + 1, :i+1].sum()
+
     result = pd.DataFrame(0.0, columns=column_name, index=[index_name])
     for i in range(0, limit):
         for j in range(1, predict_rank + 1):
@@ -190,9 +189,9 @@ def rank_probability(
     print("sususususu")
     print(prob_mat.sum(axis=1))
     print(prob_mat.sum(axis=0))
-    for p in prob_mat:
-        print(p)
     print("sususususus")
+    print(prob_mat)
+    print("aaaaaa")
     return result
 
 
@@ -236,15 +235,12 @@ for race in races:
     result_prob = rank_probability(
         nyusen_umaban_list,
         chakusa_num(chakusa_list),
-        int(race.nyusen_tosu),
+        int(race.nyusen_tosu)-1,
         row_index,
         result_column_name,
     )
     print(chakusa_list)
     print(nyusen_umaban_list)
-    print(result_prob)
-    print(result_prob.sum(axis=1))
-    print(result_prob.sum(axis=0))
     """ 
     horse_current = pd.DataFrame(
         columns=current_horse_columns, index=list(range(1, 19))
