@@ -11,7 +11,6 @@ DATABASE = "postgresql+psycopg2://%s:%s@localhost:5432/%s" % (
 
 engine = create_engine(
     DATABASE,
-    echo=True
 )
 
 # 実際の DB セッション

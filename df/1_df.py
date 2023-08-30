@@ -7,8 +7,11 @@ import pprint
 import random
 import datetime
 import numpy as np
+import time
 
-pd.set_option("display.max_columns", 100)
+parse_start=time.time()
+
+pd.set_option("display.max_columns", 1000)
 db = SessionLocal()
 """
 column_list = ["keibajo","field","roll","field_condition","grade","distance","number_of_horse",
@@ -25,6 +28,18 @@ column_name = [
     "distance",
     "number_of_horse",
 ]
+
+race_condition = [
+    "keibajo",
+    "field",
+    "roll",
+    "field_condition",
+    "grade",
+    "distance",
+    "number_of_horse",
+]
+
+
 history_number = 3
 predict_rank = 3
 for i in range(1, 19):
@@ -68,7 +83,7 @@ for i in range(1, 19):
 column_name.extend(result_column_name)
 
 
-data = pd.DataFrame(columns=column_name)
+data = pd.DataFrame()
 current_horse_columns = [
     "umaban",
     "sex",
@@ -106,18 +121,18 @@ horse_history_index = [
     for histindex in range(1, history_number + 1)
 ]
 
-for name in data.columns:
-    print()
+target_year = "2003"
+
 races = db.scalars(
     select(Race).filter(
-        Race.kaisai_nen == "2006",
+        Race.kaisai_nen == target_year,
         Race.keibajo_code >= "01",
         Race.keibajo_code <= "10",
         Race.track_code <= "26",
         Race.track_code >= "00",
         Race.nyusen_tosu > "03",
         Race.kyoso_joken_code != "701",
-    ).limit(15)
+    )
 ).all()
 
 
@@ -171,14 +186,14 @@ def chakusa_num(chakusa_list: list):
 def rank_probability(
     rank_list: list, chakusa_num: list, limit: int, index_name, column_name
 ):
-    prob_mat = np.zeros((limit+1, limit+1))
+    prob_mat = np.zeros((limit + 1, limit + 1))
     prob_mat[0, 0] = 1
-    for i in range(0, limit):
-        for j in range(i, limit ):
+    for i in range(0, predict_rank):
+        for j in range(i, limit):
             prob_mat[j + 1, i] = prob_mat[j, i] * (1 - chakusa_num[j])
-            prob_mat[j, i] = prob_mat[j,i]*chakusa_num[j]
+            prob_mat[j, i] = prob_mat[j, i] * chakusa_num[j]
         prob_mat[i, i + 1 :] = prob_mat[i + 1 :, i]
-        prob_mat[i + 1, i + 1] = 1 - prob_mat[i + 1, :i+1].sum()
+        prob_mat[i + 1, i + 1] = 1 - prob_mat[i + 1, : i + 1].sum()
 
     result = pd.DataFrame(0.0, columns=column_name, index=[index_name])
     for i in range(0, limit):
@@ -186,23 +201,11 @@ def rank_probability(
             result.at[
                 index_name, "result_" + str(rank_list[i]) + "_" + str(j)
             ] = prob_mat[i, j - 1]
-    print("sususususu")
-    print(prob_mat.sum(axis=1))
-    print(prob_mat.sum(axis=0))
-    print("sususususus")
-    print(prob_mat)
-    print("aaaaaa")
     return result
 
 
 for race in races:
-    row_index = int(
-        race.kaisai_nen
-        + race.kaisai_tsukihi
-        + race.keibajo_code
-        + race.race_bango
-    )
-    row = pd.DataFrame(columns=column_name, index=[row_index])
+    pprint.pprint(race.__dict__)
     horses = db.scalars(
         select(Career)
         .filter(
@@ -217,7 +220,6 @@ for race in races:
         )
         .order_by(Career.nyusen_juni)
     ).all()
-    pprint.pprint(race.__dict__)
     chakusa_list = ["   "] * 17
     nyusen_umaban_list = [0] * 18
 
@@ -232,16 +234,6 @@ for race in races:
                         int(horse.nyusen_juni) - 4
                     ] = horse.chakusa_code_3
 
-    result_prob = rank_probability(
-        nyusen_umaban_list,
-        chakusa_num(chakusa_list),
-        int(race.nyusen_tosu)-1,
-        row_index,
-        result_column_name,
-    )
-    print(chakusa_list)
-    print(nyusen_umaban_list)
-    """ 
     horse_current = pd.DataFrame(
         columns=current_horse_columns, index=list(range(1, 19))
     )
@@ -270,12 +262,14 @@ for race in races:
                 Career.ketto_toroku_bango == horse.ketto_toroku_bango,
                 Career.kaisai_nen + Career.kaisai_tsukihi
                 < horse.kaisai_nen + horse.kaisai_tsukihi,
+                Career.kaisai_nen + Career.kaisai_tsukihi >= "20020615",
                 Career.keibajo_code <= "10",
                 Career.keibajo_code >= "01",
                 Career.ijo_kubun_code != "1",
                 Career.ijo_kubun_code != "2",
                 Career.ijo_kubun_code != "3",
                 Career.ijo_kubun_code != "4",
+                Career.nyusen_juni != "00",
             )
             .order_by(desc(Career.kaisai_nen + Career.kaisai_tsukihi))
             .limit(history_number)
@@ -358,7 +352,6 @@ for race in races:
 
     for row in horse_current[horse_current["umaban"].isnull()].itertuples():
         bottom_horse = bottom_horses[random.randint(0, len(bottom_horses) - 1)]
-        print(row)
         horse_current.loc[row.Index] = horse_current[
             horse_current["umaban"] == int(bottom_horse.umaban)
         ].values
@@ -399,7 +392,91 @@ for race in races:
         inplace=True,
     )
 
-    pprint.pprint(race.__dict__)
-    print(horses_history)
-    print(horse_current)
-"""
+    row_index = int(
+        race.kaisai_nen
+        + race.kaisai_tsukihi
+        + race.keibajo_code
+        + race.race_bango
+    )
+
+    result_row = pd.DataFrame(
+        [
+            [
+                int(hist.keibajo_code),
+                0 if race.track_code >= "23" else 1,
+                1
+                if race.track_code == "11"
+                or race.track_code == "12"
+                or race.track_code == "23"
+                else 0
+                if race.track_code == "00"
+                else -1,
+                int(race.babajotai_code_dirt)
+                if race.track_code == "23" or race.track_code == "24"
+                else int(race.babajotai_code_shiba),
+                0
+                if race.grade_code == "_"
+                else 1
+                if race.grade_code == "E"
+                else 2
+                if race.grade_code == "D"
+                else 3
+                if race.grade_code == "L"
+                else 4
+                if race.grade_code == "C"
+                else 5
+                if race.grade_code == "B"
+                else 6
+                if race.grade_code == "A"
+                else 0,
+                int(race.kyori),
+                int(race.shusso_tosu),
+            ]
+        ],
+        columns=race_condition,
+        index=[row_index],
+    )
+
+    result_prob = rank_probability(
+        nyusen_umaban_list,
+        chakusa_num(chakusa_list),
+        min([6,int(race.nyusen_tosu)-1]),
+        row_index,
+        result_column_name,
+    )
+
+    for i in range(1, 19):
+        uma_column = [
+            str(i) + "_" + column for column in current_horse_columns
+        ]
+        current_uma = pd.DataFrame(
+            horse_current[horse_current["umaban"] == i].values,
+            index=[row_index],
+            columns=uma_column,
+        )
+        result_row = pd.concat([result_row, current_uma], axis=1)
+        for j in range(1, history_number + 1):
+            hist_column = [
+                str(i) + "_" + str(j) + "_" + column
+                for column in horses_history_columns
+            ]
+            hist_uma = pd.DataFrame(
+                horses_history.loc[i * 10 + j].values,
+                index=[row_index],
+                columns=hist_column,
+            )
+            result_row = pd.concat([result_row, hist_uma], axis=1)
+
+    result_row = pd.concat([result_row, result_prob], axis=1)
+    data = pd.concat([data, result_row], axis=0)
+
+pprint.pprint(data)
+print(data.isnull().values.sum())
+time_end=time.time()
+print(time_end-parse_start)
+for i in range(1,predict_rank+1):
+    data.drop("result_0_"+str(i), axis=1, inplace=True)
+
+pprint.pprint(data)
+print(data.isnull().values.sum())
+data.to_csv("./data1/" + target_year + ".csv")
