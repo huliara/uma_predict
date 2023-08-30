@@ -9,7 +9,7 @@ import datetime
 import numpy as np
 import time
 
-parse_start=time.time()
+parse_start = time.time()
 
 pd.set_option("display.max_columns", 1000)
 db = SessionLocal()
@@ -39,9 +39,58 @@ race_condition = [
     "number_of_horse",
 ]
 
+current_horse_columns = [
+    "umaban",
+    "sex",
+    "age",
+    "bataiju",
+    "blinker",
+    "weight",
+]
+
+horses_history_columns = [
+    "age",
+    "umaban",
+    "bataiju",
+    "blinker",
+    "weight",
+    "keibajo",
+    "field",
+    "roll",
+    "field_condition",
+    "grade",
+    "distance",
+    "number_of_horse",
+    "time",
+    "time_diff",
+    "last_3f",
+    "rank",
+    "3corner_rank",
+    "4corner_rank",
+]
+
 
 history_number = 3
 predict_rank = 3
+
+
+def horse_to_list(horse, seinengappi):
+    horse = [
+        int(horse.umaban),
+        int(horse.seibetsu_code),
+        (
+            datetime.datetime.strptime(
+                horse.kaisai_nen + horse.kaisai_tsukihi, "%Y%m%d"
+            )
+            - datetime.datetime.strptime(seinengappi, "%Y%m%d")
+        ).days,
+        int(horse.bataiju),
+        int(horse.blinker_shiyo_kubun),
+        float(horse.futan_juryo) * 0.1,
+    ]
+    return horse
+
+
 for i in range(1, 19):
     current_horse_info = [
         str(i) + "_umaban",
@@ -83,74 +132,11 @@ for i in range(1, 19):
 column_name.extend(result_column_name)
 
 
-data = pd.DataFrame()
-current_horse_columns = [
-    "umaban",
-    "sex",
-    "age",
-    "bataiju",
-    "blinker",
-    "weight",
-]
-
-horses_history_columns = [
-    "age",
-    "umaban",
-    "bataiju",
-    "blinker",
-    "weight",
-    "keibajo",
-    "field",
-    "roll",
-    "field_condition",
-    "grade",
-    "distance",
-    "number_of_horse",
-    "time",
-    "time_diff",
-    "last_3f",
-    "rank",
-    "3corner_rank",
-    "4corner_rank",
-]
-
-
 horse_history_index = [
     histindex + umaban * 10
     for umaban in range(1, 19)
     for histindex in range(1, history_number + 1)
 ]
-
-target_year = "2003"
-
-races = db.scalars(
-    select(Race).filter(
-        Race.kaisai_nen == target_year,
-        Race.keibajo_code >= "01",
-        Race.keibajo_code <= "10",
-        Race.track_code <= "26",
-        Race.track_code >= "00",
-        Race.nyusen_tosu > "03",
-        Race.kyoso_joken_code != "701",
-    )
-).all()
-
-
-def horse_to_list(horse, seinengappi):
-    horse = [
-        int(horse.umaban),
-        int(horse.seibetsu_code),
-        (
-            datetime.datetime.strptime(
-                horse.kaisai_nen + horse.kaisai_tsukihi, "%Y%m%d"
-            )
-            - datetime.datetime.strptime(seinengappi, "%Y%m%d")
-        ).days,
-        int(horse.bataiju),
-        int(horse.blinker_shiyo_kubun),
-        float(horse.futan_juryo) * 0.1,
-    ]
-    return horse
 
 
 def chakusa_num(chakusa_list: list):
@@ -203,6 +189,24 @@ def rank_probability(
             ] = prob_mat[i, j - 1]
     return result
 
+
+
+
+target_year = "2010"
+
+data = pd.DataFrame()
+
+races = db.scalars(
+    select(Race).filter(
+        Race.kaisai_nen == target_year,
+        Race.keibajo_code >= "01",
+        Race.keibajo_code <= "10",
+        Race.track_code <= "26",
+        Race.track_code >= "00",
+        Race.nyusen_tosu > "03",
+        Race.kyoso_joken_code != "701",
+    )
+).all()
 
 for race in races:
     pprint.pprint(race.__dict__)
@@ -440,7 +444,7 @@ for race in races:
     result_prob = rank_probability(
         nyusen_umaban_list,
         chakusa_num(chakusa_list),
-        min([6,int(race.nyusen_tosu)-1]),
+        min([6, int(race.nyusen_tosu) - 1]),
         row_index,
         result_column_name,
     )
@@ -472,10 +476,10 @@ for race in races:
 
 pprint.pprint(data)
 print(data.isnull().values.sum())
-time_end=time.time()
-print(time_end-parse_start)
-for i in range(1,predict_rank+1):
-    data.drop("result_0_"+str(i), axis=1, inplace=True)
+time_end = time.time()
+print(time_end - parse_start)
+for i in range(1, predict_rank + 1):
+    data.drop("result_0_" + str(i), axis=1, inplace=True)
 
 pprint.pprint(data)
 print(data.isnull().values.sum())
