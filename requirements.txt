@@ -3,3 +3,6 @@ pandas
 SQLAlchemy
 sqlalchemy_utils
 psycopg2
+torch
+torchvision
+pytorch-lightning
