@@ -1,10 +1,10 @@
 import torch
 import pytorch_lightning as pl
-from torch.utils.data import Dataloader
+from torch.utils.data import DataLoader, random_split
 import pandas as pd
 
 
-class HorseDataset(pl.LightningDataModule):
+class HorseDataModule(pl.LightningDataModule):
     def __init__(self, train_csv_file, test_csv_file, batch_size: int = 32):
         super().__init__()
         self.train_csv_file = train_csv_file
@@ -16,34 +16,34 @@ class HorseDataset(pl.LightningDataModule):
         self.test_df = pd.read_csv(self.test_csv_file)
         all = HorseDataset(self.train_df)
         train_size = int(len(all) * 0.8)
-        self.train, self.val = torch.utils.data.random_split(
+        self.train, self.val = random_split(
             all, [train_size, len(all) - train_size]
         )
         self.test = HorseDataset(self.test_df)
 
     def train_dataloader(self):
-        return Dataloader(
+        return DataLoader(
             self.train,
             batch_size=self.batch_size,
-            worker_num=4,
+            num_workers=4,
             pin_memory=True,
             shuffle=True,
         )
 
     def val_dataloader(self):
-        return Dataloader(
+        return DataLoader(
             self.val,
             batch_size=self.batch_size,
-            worker_num=4,
+            num_workers=4,
             pin_memory=True,
             shuffle=False,
         )
     
     def test_dataloader(self):
-        return Dataloader(
+        return DataLoader(
             self.test,
             batch_size=self.batch_size,
-            worker_num=4,
+            num_workers=4,
             pin_memory=True,
             shuffle=False,
         )
@@ -53,11 +53,14 @@ class HorseDataset(pl.LightningDataModule):
 
 class HorseDataset(torch.utils.data.Dataset):
     def __init__(self, data_frame):
-        self.feature = torch.tensor(data_frame[:, :-54].values)
-        self.target = torch.tensor(data_frame[:, -54:].values)
+        self.feature = torch.tensor(data_frame.iloc[:, :-54].values)
+        self.target = torch.tensor(data_frame.iloc[:, -54:].values)
 
     def __len__(self):
-        return len(self.target.size()[0])
+        return self.target.size()[0]
+    
+    def feature_columns(self):
+        return self.feature.size()[1]
 
     def __getitem__(self, idx):
         return self.feature[idx], self.target[idx]

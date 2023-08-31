@@ -14,9 +14,9 @@ class HorsePredictor(pl.LightningModule):
         hiden_layer_size: list[int] = [2048, 1024, 512, 256, 128, 64],
     ):
         super().__init__()
-        self.train_acc = Accuracy()
-        self.val_acc = Accuracy()
-        self.test_acc = Accuracy()
+        self.train_acc = Accuracy(task="multiclass",num_classes=18)
+        self.val_acc = Accuracy(task="multiclass",num_classes=18)
+        self.test_acc = Accuracy(task="multiclass",num_classes=18)
         all_layers = []
         first_layersize = input_size
         for unit in hiden_layer_size:
@@ -34,7 +34,7 @@ class HorsePredictor(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self(x)
         loss = nn.functional.mse_loss(y_hat, y)
         first = torch.argmax(y[0::3], dim=1)
         pred_1 = torch.argmax(y_hat[0::3], dim=1)
@@ -42,13 +42,13 @@ class HorsePredictor(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def training_epoch_end(self, outputs):
+    def on_training_epoch_end(self, outputs):
         self.log("train_acc_epoch", self.train_acc.compute())
         self.train_acc.reset()
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self(x)
         loss = nn.functional.mse_loss(y_hat, y)
         first = torch.argmax(y[0::3], dim=1)
         pred_1 = torch.argmax(y_hat[0::3], dim=1)
@@ -56,13 +56,13 @@ class HorsePredictor(pl.LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs):
         self.log("val_acc_epoch", self.val_acc.compute(), prog_bar=True)
         self.val_acc.reset()
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.model(x)
+        y_hat = self(x)
         loss = nn.functional.mse_loss(y_hat, y)
         first = torch.argmax(y[0::3], dim=1)
         pred_1 = torch.argmax(y_hat[0::3], dim=1)
