@@ -1,6 +1,6 @@
 import torch
-from data import HorseDataModule
-from predictor import HorsePredictor
+from data2 import HorseDataModule
+from predictor2 import HorsePredictor
 from pytorch_lightning import Trainer
 import pandas as pd
 
@@ -10,12 +10,12 @@ def main():
     torch.manual_seed(1)
     horse_data = HorseDataModule("df/data2/2006_2021.csv", "df/data2/2022.csv")
     horse_data.setup()
-    horse_predictor = HorsePredictor(column_len, 54)
+    horse_predictor = HorsePredictor(column_len, 18)
 
     if torch.cuda.is_available():
         trainer = Trainer(gpus=1, max_epochs=100)
     else:
-        trainer=Trainer(max_epochs=100)
+        trainer=Trainer(max_epochs=10)
 
     trainer.fit(horse_predictor, horse_data)
 

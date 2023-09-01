@@ -54,13 +54,10 @@ class HorseDataModule(pl.LightningDataModule):
 class HorseDataset(torch.utils.data.Dataset):
     def __init__(self, data_frame):
         self.feature = torch.tensor(data_frame.iloc[:, :-54].values,dtype=torch.float32)
-        self.target = torch.tensor(data_frame.iloc[:, -54:].values,dtype=torch.float32)
+        self.target = torch.tensor(data_frame.iloc[:, -54::3].values,dtype=torch.float32)
 
     def __len__(self):
         return self.target.size()[0]
-    
-    def feature_columns(self):
-        return self.feature.size()[1]
 
     def __getitem__(self, idx):
         return self.feature[idx], self.target[idx]
