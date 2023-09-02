@@ -1,32 +1,261 @@
-from uma_predict.db.database import Reflected, Base,engine
+from uma_predict.db.database import Reflected, Base, engine
 import uuid
-from sqlalchemy.orm import Mapped,mapped_column,relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import date
 
-class Race(Reflected,Base):
-    __tablename__="jvd_ra"
-    
-class Horse(Reflected,Base):
-    __tablename__="jvd_um"
 
-class Career(Reflected,Base):
-    __tablename__="jvd_se"
-    
+class Race(Reflected, Base):
+    __tablename__ = "jvd_ra"
+    record_id: Mapped[str]
+    data_kubun: Mapped[str]
+    data_sakusei_nengappi: Mapped[str]
+    kaisai_nen: Mapped[str] = mapped_column("kaisai_nen", primary_key=True)
+    kaisai_tsukihi: Mapped[str] = mapped_column(
+        "kaisai_tsukihi", primary_key=True
+    )
+    keibajo_code: Mapped[str] = mapped_column("keibajo_code", primary_key=True)
+    kaisai_kai: Mapped[str]
+    kaisai_nichime: Mapped[str]
+    race_bango: Mapped[str] = mapped_column("race_bango", primary_key=True)
+    yobi_code: Mapped[str]
+    tokubetsu_kyoso_bango: Mapped[str]
+    kyosomei_hondai: Mapped[str]
+    kyosomei_fukudai: Mapped[str]
+    kyosomei_kakkonai: Mapped[str]
+    kyosomei_hondai_eur: Mapped[str]
+    kyosomei_fukudai_eur: Mapped[str]
+    kyosomei_kakkonai_eur: Mapped[str]
+    kyosomei_ryakusho_10: Mapped[str]
+    kyosomei_ryakusho_6: Mapped[str]
+    kyosomei_ryakusho_3: Mapped[str]
+    kyosomei_kubun: Mapped[str]
+    jusho_kaiji: Mapped[str]
+    grade_code: Mapped[str]
+    grade_code_henkomae: Mapped[str]
+    kyoso_shubetsu_code: Mapped[str]
+    kyoso_kigo_code: Mapped[str]
+    juryo_shubetsu_code: Mapped[str]
+    kyoso_joken_code_2sai: Mapped[str]
+    kyoso_joken_code_3sai: Mapped[str]
+    kyoso_joken_code_4sai: Mapped[str]
+    kyoso_joken_code_5sai_ijo: Mapped[str]
+    kyoso_joken_code: Mapped[str]
+    kyoso_joken_meisho: Mapped[str]
+    kyori: Mapped[str]
+    kyori_henkomae: Mapped[str]
+    track_code: Mapped[str]
+    track_code_henkomae: Mapped[str]
+    course_kubun: Mapped[str]
+    course_kubun_henkomae: Mapped[str]
+    honshokin: Mapped[str]
+    honshokin_henkomae: Mapped[str]
+    fukashokin: Mapped[str]
+    fukashokin_henkomae: Mapped[str]
+    hasso_jikoku: Mapped[str]
+    hasso_jikoku_henkomae: Mapped[str]
+    toroku_tosu: Mapped[str]
+    shusso_tosu: Mapped[str]
+    nyusen_tosu: Mapped[str]
+    tenko_code: Mapped[str]
+    babajotai_code_shiba: Mapped[str]
+    babajotai_code_dirt: Mapped[str]
+    lap_time: Mapped[str]
+    shogai_mile_time: Mapped[str]
+    zenhan_3f: Mapped[str]
+    zenhan_4f: Mapped[str]
+    kohan_3f: Mapped[str]
+    kohan_4f: Mapped[str]
+    corner_tsuka_juni_1: Mapped[str]
+    corner_tsuka_juni_2: Mapped[str]
+    corner_tsuka_juni_3: Mapped[str]
+    corner_tsuka_juni_4: Mapped[str]
+    record_koshin_kubun: Mapped[str]
+
+
+class Horse(Reflected, Base):
+    __tablename__ = "jvd_um"
+    record_id: Mapped[str]
+    data_kubun: Mapped[str]
+    data_sakusei_nengappi: Mapped[str]
+    ketto_toroku_bango: Mapped[str] = mapped_column(
+        "ketto_toroku_bango", primary_key=True
+    )
+    massho_kubun: Mapped[str]
+    toroku_nengappi: Mapped[str]
+    massho_nengappi: Mapped[str]
+    seinengappi: Mapped[str]
+    bamei: Mapped[str]
+    bamei_hankaku_kana: Mapped[str]
+    bamei_eur: Mapped[str]
+    zaikyu_flag: Mapped[str]
+    yobi_1: Mapped[str]
+    umakigo_code: Mapped[str]
+    seibetsu_code: Mapped[str]
+    hinshu_code: Mapped[str]
+    moshoku_code: Mapped[str]
+    ketto_joho_01a: Mapped[str]
+    ketto_joho_01b: Mapped[str]
+    ketto_joho_02a: Mapped[str]
+    ketto_joho_02b: Mapped[str]
+    ketto_joho_03a: Mapped[str]
+    ketto_joho_03b: Mapped[str]
+    ketto_joho_04a: Mapped[str]
+    ketto_joho_04b: Mapped[str]
+    ketto_joho_05a: Mapped[str]
+    ketto_joho_05b: Mapped[str]
+    ketto_joho_06a: Mapped[str]
+    ketto_joho_06b: Mapped[str]
+    ketto_joho_07a: Mapped[str]
+    ketto_joho_07b: Mapped[str]
+    ketto_joho_08a: Mapped[str]
+    ketto_joho_08b: Mapped[str]
+    ketto_joho_09a: Mapped[str]
+    ketto_joho_09b: Mapped[str]
+    ketto_joho_10a: Mapped[str]
+    ketto_joho_10b: Mapped[str]
+    ketto_joho_11a: Mapped[str]
+    ketto_joho_11b: Mapped[str]
+    ketto_joho_12a: Mapped[str]
+    ketto_joho_12b: Mapped[str]
+    ketto_joho_13a: Mapped[str]
+    ketto_joho_13b: Mapped[str]
+    ketto_joho_14a: Mapped[str]
+    ketto_joho_14b: Mapped[str]
+    tozai_shozoku_code: Mapped[str]
+    chokyoshi_code: Mapped[str]
+    chokyoshimei_ryakusho: Mapped[str]
+    shotai_chiikimei: Mapped[str]
+    seisansha_code: Mapped[str]
+    seisanshamei: Mapped[str]
+    sanchimei: Mapped[str]
+    banushi_code: Mapped[str]
+    banushimei: Mapped[str]
+    heichi_honshokin_ruikei: Mapped[str]
+    shogai_honshokin_ruikei: Mapped[str]
+    heichi_fukashokin_ruikei: Mapped[str]
+    shogai_fukashokin_ruikei: Mapped[str]
+    heichi_shutokushokin_ruikei: Mapped[str]
+    shogai_shutokushokin_ruikei: Mapped[str]
+    sogo: Mapped[str]
+    chuo_gokei: Mapped[str]
+    shiba_choku: Mapped[str]
+    shiba_migi: Mapped[str]
+    shiba_hidari: Mapped[str]
+    dirt_choku: Mapped[str]
+    dirt_migi: Mapped[str]
+    dirt_hidari: Mapped[str]
+    shogai: Mapped[str]
+    shiba_ryo: Mapped[str]
+    shiba_yayaomo: Mapped[str]
+    shiba_omo: Mapped[str]
+    shiba_furyo: Mapped[str]
+    dirt_ryo: Mapped[str]
+    dirt_yayaomo: Mapped[str]
+    dirt_omo: Mapped[str]
+    dirt_furyo: Mapped[str]
+    shogai_ryo: Mapped[str]
+    shogai_yayaomo: Mapped[str]
+    shogai_omo: Mapped[str]
+    shogai_furyo: Mapped[str]
+    shiba_short: Mapped[str]
+    shiba_middle: Mapped[str]
+    shiba_long: Mapped[str]
+    dirt_short: Mapped[str]
+    dirt_middle: Mapped[str]
+    dirt_long: Mapped[str]
+    kyakushitsu_keiko: Mapped[str]
+    toroku_race_su: Mapped[str]
+
+
+class Career(Reflected, Base):
+    __tablename__ = "jvd_se"
+    record_id                   :Mapped[str]
+    data_kubun                  :Mapped[str]
+    data_sakusei_nengappi       :Mapped[str]
+    kaisai_nen                  :Mapped[str]=mapped_column("kaisai_nen", primary_key=True)
+    kaisai_tsukihi              :Mapped[str]=mapped_column("kaisai_tsukihi", primary_key=True)
+    keibajo_code                :Mapped[str]=mapped_column("keibajo_code", primary_key=True)
+    kaisai_kai                  :Mapped[str]
+    kaisai_nichime              :Mapped[str]
+    race_bango                  :Mapped[str]=mapped_column("race_bango", primary_key=True)
+    wakuban                     :Mapped[str]
+    umaban                      :Mapped[str]=mapped_column("umaban", primary_key=True)
+    ketto_toroku_bango          :Mapped[str]=mapped_column("ketto_toroku_bango", primary_key=True)
+    bamei                       :Mapped[str]
+    umakigo_code                :Mapped[str]
+    seibetsu_code               :Mapped[str]
+    hinshu_code                 :Mapped[str]
+    moshoku_code                :Mapped[str]
+    barei                       :Mapped[str]
+    tozai_shozoku_code          :Mapped[str]
+    chokyoshi_code              :Mapped[str]
+    chokyoshimei_ryakusho       :Mapped[str]
+    banushi_code                :Mapped[str]
+    banushimei                  :Mapped[str]
+    fukushoku_hyoji             :Mapped[str]
+    yobi_1                      :Mapped[str]
+    futan_juryo                 :Mapped[str]
+    futan_juryo_henkomae        :Mapped[str]
+    blinker_shiyo_kubun         :Mapped[str]
+    yobi_2                      :Mapped[str]
+    kishu_code                  :Mapped[str]
+    kishu_code_henkomae         :Mapped[str]
+    kishumei_ryakusho           :Mapped[str]
+    kishumei_ryakusho_henkomae  :Mapped[str]
+    kishu_minarai_code          :Mapped[str]
+    kishu_minarai_code_henkomae :Mapped[str]
+    bataiju                     :Mapped[str]
+    zogen_fugo                  :Mapped[str]
+    zogen_sa                    :Mapped[str]
+    ijo_kubun_code              :Mapped[str]
+    nyusen_juni                 :Mapped[str]
+    kakutei_chakujun            :Mapped[str]
+    dochaku_kubun               :Mapped[str]
+    dochaku_tosu                :Mapped[str]
+    soha_time                   :Mapped[str]
+    chakusa_code_1              :Mapped[str]
+    chakusa_code_2              :Mapped[str]
+    chakusa_code_3              :Mapped[str]
+    corner_1                    :Mapped[str]
+    corner_2                    :Mapped[str]
+    corner_3                    :Mapped[str]
+    corner_4                    :Mapped[str]
+    tansho_odds                 :Mapped[str]
+    tansho_ninkijun             :Mapped[str]
+    kakutoku_honshokin          :Mapped[str]
+    kakutoku_fukashokin         :Mapped[str]
+    yobi_3                      :Mapped[str]
+    yobi_4                      :Mapped[str]
+    kohan_4f                    :Mapped[str]
+    kohan_3f                    :Mapped[str]
+    aiteuma_joho_1              :Mapped[str]
+    aiteuma_joho_2              :Mapped[str]
+    aiteuma_joho_3              :Mapped[str]
+    time_sa                     :Mapped[str]
+    record_koshin_kubun         :Mapped[str]
+    mining_kubun                :Mapped[str]
+    yoso_soha_time              :Mapped[str]
+    yoso_gosa_plus              :Mapped[str]
+    yoso_gosa_minus             :Mapped[str]
+    yoso_juni                   :Mapped[str]
+    kyakushitsu_hantei          :Mapped[str]
+
 class Track(Base):
-    __tablename__="track"
-    id:Mapped[uuid.UUID]=mapped_column("id",primary_key=True,default=uuid.uuid4)
-    jra_code:Mapped[str]#東京競馬場なら"05"
-    start_year:Mapped[str]
-    start_date:Mapped[str]
-    end_year:Mapped[str]
-    end_date:Mapped[str]
-    distance:Mapped[str]
-    track_code:Mapped[str]#平地　芝　外回り　など
-    dirt_condition:Mapped[str]
-    turf_condition:Mapped[str]
-    count:Mapped[int]
-    mean:Mapped[float]
-    
-    
-    
+    __tablename__ = "track"
+    id: Mapped[uuid.UUID] = mapped_column(
+        "id", primary_key=True, default=uuid.uuid4
+    )
+    jra_code: Mapped[str]  # 東京競馬場なら"05"
+    start_year: Mapped[str]
+    start_date: Mapped[str]
+    end_year: Mapped[str]
+    end_date: Mapped[str]
+    distance: Mapped[str]
+    track_code: Mapped[str]  # 平地　芝　外回り　など
+    dirt_condition: Mapped[str]
+    turf_condition: Mapped[str]
+    count: Mapped[int]
+    mean: Mapped[float]
+
+
 Reflected.prepare(engine)
