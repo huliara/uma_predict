@@ -15,15 +15,12 @@ class Career(Reflected,Base):
 class Track(Base):
     __tablename__="track"
     id:Mapped[uuid.UUID]=mapped_column("id",primary_key=True,default=uuid.uuid4)
-    jra_code:Mapped[str]#東京競馬場なら"05"
+    keibajo_code:Mapped[str]#東京競馬場なら"05"
     start_year:Mapped[str]
-    start_date:Mapped[str]
     end_year:Mapped[str]
-    end_date:Mapped[str]
-    distance:Mapped[str]
+    kyori:Mapped[str]
     track_code:Mapped[str]#平地　芝　外回り　など
-    dirt_condition:Mapped[str]
-    turf_condition:Mapped[str]
+    babajotai_code:Mapped[str]
     count:Mapped[int]
     mean:Mapped[float]
     
