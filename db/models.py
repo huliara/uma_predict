@@ -251,7 +251,8 @@ class Track(Base):
     babajotai_code:Mapped[str]
     count:Mapped[int]
     mean:Mapped[float]
-    
+    std:Mapped[float]
+    is_last3f:Mapped[bool]=mapped_column("is_last3f",default=False)
     
     
 Reflected.prepare(engine)

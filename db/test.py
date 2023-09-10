@@ -7,20 +7,6 @@ import pprint
 db = SessionLocal()
 
 
-def get_races_same_condition_central(
-    db: Session,
-    start_nen,
-    start_day,
-    stop_nen,
-    stop_day,
-    keibajo_code,
-    track_code,
-    kyori,
-    babajotai_code,
-):
-    return
-
-
 races = db.scalars(
     select(Race).filter(
         Race.kaisai_nen >= "2003",

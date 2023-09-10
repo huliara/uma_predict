@@ -1,7 +1,7 @@
 from models import Track, Career, Race
-from database import SessionLocal, engine
+from database import SessionLocal, engine, Session
 from sqlalchemy.future import select
-
+import statistics
 jra_central_track_code = [
     "01",
     "02",
@@ -51,11 +51,9 @@ kyori_list = [
 ]
 
 condition_code = ["0", "1", "2", "3", "4"]
-db = SessionLocal()
-Track.metadata.tables["track"].create(engine)
 
 
-def track_mean(start_year: str, end_year: str, keibajo_code: str):
+def track_mean(start_year: str, end_year: str, keibajo_code: str, db: Session):
     keibajo_datas = []
     for track in track_code:
         for condition in condition_code:
@@ -84,10 +82,11 @@ def track_mean(start_year: str, end_year: str, keibajo_code: str):
                     )
 
                 soha_time_sum = 0.0
+                last3f_times_sum = 0.0
                 soha_horse_num = 0
                 for race in races:
-                    career = db.scalars(
-                        select(Career.soha_time).filter(
+                    careers: list[Career] = db.scalars(
+                        select(Career).filter(
                             Career.kaisai_nen == race.kaisai_nen,
                             Career.kaisai_tsukihi == race.kaisai_tsukihi,
                             Career.keibajo_code == race.keibajo_code,
@@ -99,15 +98,27 @@ def track_mean(start_year: str, end_year: str, keibajo_code: str):
                             Career.ijo_kubun_code != "4",
                             Career.nyusen_juni != "00",
                         )
-                    )
-                    soha_times = [float(soha_time) for soha_time in career]
-                    horse_num = len(career)
+                    ).all()
+
+                    soha_times = [
+                        float(career.soha_time[0]) * 60
+                        + float(career.soha_time[1:]) * 0.1
+                        for career in careers
+                    ]
+                    last3f_times = [
+                        float(career.kohan_3f) * 0.1 for career in careers
+                    ]
+                    horse_num = len(careers)
                     if horse_num > 0:
                         soha_time_sum += sum(soha_times)
+                        last3f_times_sum += sum(last3f_times)
                         soha_horse_num += horse_num
                 if soha_horse_num == 0:
                     continue
                 mean = soha_time_sum / soha_horse_num
+                std=statistics.stdev(soha_times)
+                mean_last3f = last3f_times_sum / soha_horse_num
+                std_last3f=statistics.stdev(last3f_times)
                 track_data = Track(
                     keibajo_code=keibajo_code,
                     start_year=start_year,
@@ -117,7 +128,20 @@ def track_mean(start_year: str, end_year: str, keibajo_code: str):
                     babajotai_code=condition,
                     count=soha_horse_num,
                     mean=mean,
+                    std=std,
+                )
+                track_data_last3f = Track(
+                    keibajo_code=keibajo_code,
+                    start_year=start_year,
+                    end_year=end_year,
+                    kyori=kyori,
+                    track_code=track,
+                    babajotai_code=condition,
+                    count=soha_horse_num,
+                    mean=mean_last3f,
+                    std=std_last3f,
+                    is_last3f=True,
                 )
                 keibajo_datas.append(track_data)
-
+                keibajo_datas.append(track_data_last3f)
     return keibajo_datas

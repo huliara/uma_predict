@@ -8,16 +8,13 @@ import statistics
 db = SessionLocal()
 
 races = db.scalars(
-    select(Career.futan_juryo).filter(
-        Career.kaisai_nen>="2006",
-        Career.nyusen_juni=="00",
-        Career.keibajo_code>="01",
-        Career.keibajo_code<="10",
-        Career.ijo_kubun_code=="0",
-        Career.bataiju!="   ",
+    select(Race.kyori).filter(
+        Race.kaisai_nen>="2006",
+        Race.keibajo_code>="01",
+        Race.keibajo_code<="10",
     )
 ).all()
 
-bataiju_list=[float(race) for race in races]
+bataiju_list=[int(race) for race in races]
 print(set(bataiju_list))
 print(statistics.stdev(bataiju_list))
