@@ -14,7 +14,7 @@ class HorseDataModule(pl.LightningDataModule):
     def setup(self, stage=None):
         self.train_df = pd.read_csv(self.train_csv_file)
         self.test_df = pd.read_csv(self.test_csv_file)
-        all = HorseDataset(self.train_df)
+        all = HorseDataset(self.train_df)                                               
         train_size = int(len(all) * 0.8)
         self.train, self.val = random_split(
             all, [train_size, len(all) - train_size]

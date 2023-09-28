@@ -114,7 +114,7 @@ horses_hist_num_column = [
     "tansho_ninkijun",
 ]
 
-history_number = 2
+history_number = 5
 predict_rank = 3
 
 
@@ -129,14 +129,14 @@ data = pd.DataFrame()
 
 races = db.scalars(
     select(Race).filter(
-        Race.kaisai_nen == "2021",
+        Race.kaisai_nen == "2022",
         Race.keibajo_code >= "01",
         Race.keibajo_code <= "10",
         Race.track_code <= "26",
         Race.track_code >= "00",
         Race.nyusen_tosu > "03",
         Race.kyoso_joken_code != "701",
-    ).limit(10)
+    )
 ).all()
 
 for race in races:
@@ -151,6 +151,7 @@ for race in races:
     horse_current = pd.DataFrame(
         0, columns=current_horse_columns, index=list(range(1, 19))
     )
+    horse_current["tansho_odds"] = 10000
     bottom_horses_number = int(race.nyusen_tosu) // 5 + 1
     bottom_horses = list(
         filter(
@@ -232,7 +233,6 @@ for race in races:
                 + history_number
             ] = horses_history.loc[int(horse.umaban) * 10 + hist_len].values
 
-    print(horses_history)
     horses_history = horses_history[history_target_columns]
 
     # スケーリング
