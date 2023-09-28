@@ -11,7 +11,7 @@ class HorsePredictor(pl.LightningModule):
         self,
         input_size,
         output_size,
-        hiden_layer_size: list[int] = [1024, 512, 128, 64],
+        hiden_layer_size: list[int] = [1024, 512, 64, 32],
     ):
         super().__init__()
         self.train_acc = Accuracy(task="multiclass", num_classes=18)
@@ -35,9 +35,8 @@ class HorsePredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = nn.functional.cross_entropy(y_hat, y)
-        first = torch.argmax(y, dim=1)
         pred_1 = torch.argmax(y_hat, dim=1)
-        self.train_acc.update(pred_1, first)
+        self.train_acc.update(pred_1, y)
         self.log("train_loss", loss, prog_bar=True)
         return loss
 
@@ -49,9 +48,8 @@ class HorsePredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = nn.functional.cross_entropy(y_hat, y)
-        first = torch.argmax(y, dim=1)
         pred_1 = torch.argmax(y_hat, dim=1)
-        self.val_acc.update(pred_1, first)
+        self.val_acc.update(pred_1, y)
         self.log("val_loss", loss, prog_bar=True)
         return loss
 
@@ -63,11 +61,10 @@ class HorsePredictor(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = nn.functional.cross_entropy(y_hat, y)
-        first = torch.argmax(y, dim=1)
         pred_1 = torch.argmax(y_hat, dim=1)
-        self.test_acc.update(pred_1, first)
+        self.test_acc.update(pred_1, y)
         self.log("test_loss", loss, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.01)
+        return torch.optim.SGD(self.parameters(), lr=0.000001, momentum=0.9)

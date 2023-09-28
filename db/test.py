@@ -1,4 +1,4 @@
-from models import Race, Career, Horse
+from models import Race, Career, Horse,Track
 from database import SessionLocal
 from sqlalchemy.future import select
 from sqlalchemy.orm import Session
@@ -29,7 +29,11 @@ career = db.scalars(
     )
 ).all()
 
-uma = db.scalars(select(Horse).filter(Horse.seinengappi >= "2019")).first()
+track=db.scalars(
+    select(Track).filter(
+        Track.keibajo_code=="05"
+    )
+).all()
 
-pprint.pprint(career[0].__dict__)
-pprint.pprint(uma.__dict__)
+uma = db.scalars(select(Horse).filter(Horse.seinengappi >= "2019")).first()
+pprint.pprint(races.__dict__)

@@ -3,6 +3,7 @@ from uma_predict.db.models import Race, Career, Horse, Track
 from uma_predict.db.database import SessionLocal
 from sqlalchemy.future import select
 from sqlalchemy import desc
+from utils import horse_to_list, field_mapper, grade_mapper, roll_mapper, condition_mapper, soha_time_parser   
 import pprint
 import random
 import datetime
@@ -69,70 +70,12 @@ horses_history_columns = [
 ]
 
 
-history_number = 4
+
+
+
+
+history_number = 2
 predict_rank = 3
-
-
-def horse_to_list(horse, seinengappi):
-    horse = [
-        int(horse.umaban),
-        0 if horse.seibetsu_code == "2" else 1 if horse.seibetsu_code == "1" else 2,
-        (
-            datetime.datetime.strptime(
-                horse.kaisai_nen + horse.kaisai_tsukihi, "%Y%m%d"
-            )
-            - datetime.datetime.strptime(seinengappi, "%Y%m%d")
-        ).days,
-        int(horse.bataiju),
-        int(horse.blinker_shiyo_kubun),
-        float(horse.futan_juryo),
-    ]
-    return horse
-
-
-def field_mapper(track_code: str):
-    return 0 if track_code >= "23" else 1
-
-
-def grade_mapper(grade: str):
-    if grade == "_":
-        return 0
-    elif grade == "E":
-        return 1
-    elif grade == "D":
-        return 2
-    elif grade == "L":
-        return 3
-    elif grade == "C":
-        return 4
-    elif grade == "B":
-        return 5
-    elif grade == "A":
-        return 6
-    else:
-        return 0
-
-
-def roll_mapper(track_code: str):
-    return (
-        1
-        if track_code == "11" or track_code == "12" or track_code == "23"
-        else -1
-        if track_code == "00"
-        else 0
-    )
-
-
-def condition_mapper(race: Race):
-    return (
-        int(race.babajotai_code_dirt)
-        if race.track_code == "23" or race.track_code == "24"
-        else int(race.babajotai_code_shiba)
-    )
-
-
-def soha_time_parser(soha_time: str):
-    return float(soha_time[0]) * 60 + float(soha_time[1:]) * 0.1
 
 
 for i in range(1, 19):
@@ -313,12 +256,12 @@ for race in races:
                 grade_mapper(past_race.grade_code),
                 int(past_race.kyori),
                 int(past_race.shusso_tosu),
-                (soha_time_parser(hist.soha_time) - time_mean.mean)
+                -(soha_time_parser(hist.soha_time) - time_mean.mean)
                 / time_mean.std,
                 float(hist.time_sa[1:]) * 0.1
                 if hist.time_sa[0] == "+"
                 else 0.0,
-                (float(hist.kohan_3f) * 0.1 - last3f_mean.mean)
+                -(float(hist.kohan_3f) * 0.1 - last3f_mean.mean)
                 / last3f_mean.std,
                 int(hist.nyusen_juni),
                 int(hist.corner_3),
@@ -367,11 +310,11 @@ for race in races:
             .mode()
             .iloc[0],
             "grade": horses_history["grade"].mode().iloc[0],
-            "distance": horses_history["distance"].max(),
+            "distance": horses_history["distance"].min(),
             "number_of_horse": 18,
             "time": horses_history["time"].max(),
             "time_diff": horses_history["time_diff"].mean(),
-            "last_3f": horses_history["last_3f"].max(),
+            "last_3f": horses_history["last_3f"].min(),
             "rank": random.randint(4, 18),
             "3corner_rank": random.randint(4, 18),
             "4corner_rank": random.randint(4, 18),
@@ -465,4 +408,4 @@ print(time_end - parse_start)
 pprint.pprint(data)
 print(data.isnull().values.sum())
 target_year = "2012_2021"
-data.to_csv("./data3/" + target_year + ".csv")
+data.to_csv("./data4/" + target_year +"_" + str(history_number) + ".csv")
