@@ -98,21 +98,21 @@ history_target_columns = [
 ]
 
 horses_hist_num_column = [
-        "umaban",
-        "bataiju",
-        "blinker_shiyo_kubun",
-        "futan_juryo",
-        "babajotai_code_shiba",
-        "babajotai_code_dirt",
-        "kyori",
-        "shusso_tosu",
-        "kohan_3f",
-        "nyusen_juni",
-        "corner_3",
-        "corner_4",
-        "tansho_odds",
-        "tansho_ninkijun",
-    ]
+    "umaban",
+    "bataiju",
+    "blinker_shiyo_kubun",
+    "futan_juryo",
+    "babajotai_code_shiba",
+    "babajotai_code_dirt",
+    "kyori",
+    "shusso_tosu",
+    "kohan_3f",
+    "nyusen_juni",
+    "corner_3",
+    "corner_4",
+    "tansho_odds",
+    "tansho_ninkijun",
+]
 
 history_number = 2
 predict_rank = 3
@@ -136,7 +136,7 @@ races = db.scalars(
         Race.track_code >= "00",
         Race.nyusen_tosu > "03",
         Race.kyoso_joken_code != "701",
-    )
+    ).limit(10)
 ).all()
 
 for race in races:
@@ -149,7 +149,7 @@ for race in races:
         nyusen_umaban_list[int(horse.nyusen_juni) - 1] = int(horse.umaban)
 
     horse_current = pd.DataFrame(
-        0,columns=current_horse_columns, index=list(range(1, 19))
+        0, columns=current_horse_columns, index=list(range(1, 19))
     )
     bottom_horses_number = int(race.nyusen_tosu) // 5 + 1
     bottom_horses = list(
@@ -186,35 +186,39 @@ for race in races:
             if past_race.track_code > "26" or past_race.track_code < "00":
                 continue
 
-            hist_df = hist_model_to_pandas(
-                hist,
-                columns=horses_history_columns,
-                index=hist_index + int(horse.umaban) * 10,
-            )
-            hist_df["barei"] = (
-                datetime.datetime.strptime(
-                    hist[0].kaisai_nen + hist[0].kaisai_tsukihi, "%Y%m%d"
-                )
-                - datetime.datetime.strptime(
-                    horse_master.seinengappi, "%Y%m%d"
-                )
-            ).days
-            hist_df["time_sa"] = parse_time_sa(hist_df["time_sa"].values[0])
-            hist_df["soha_time"] = soha_time_parser(
-                hist_df["soha_time"].values[0]
-            )
-            hist_df["field"] = field_mapper(hist_df["track_code"].values[0])
-            hist_df["roll"] = roll_mapper(hist_df["track_code"].values[0])
-            hist_df["grade_code"] = grade_mapper(
-                hist_df["grade_code"].values[0]
-            )
-
-            for num_column in horses_hist_num_column:
-                hist_df[num_column] = hist_df[num_column].astype(float)
+            hist_dict = {
+                "barei": (
+                    datetime.datetime.strptime(
+                        hist[0].kaisai_nen + hist[0].kaisai_tsukihi, "%Y%m%d"
+                    )
+                    - datetime.datetime.strptime(
+                        horse_master.seinengappi, "%Y%m%d"
+                    )
+                ).days,
+                "umaban": int(hist[0].umaban),
+                "bataiju": float(hist[0].bataiju),
+                "blinker_shiyo_kubun": int(hist[0].blinker_shiyo_kubun),
+                "futan_juryo": float(hist[0].futan_juryo),
+                "condition": int(hist[1].babajotai_code_shiba)
+                + int(hist[1].babajotai_code_dirt),
+                "field": field_mapper(hist[1].track_code),
+                "roll": roll_mapper(hist[1].track_code),
+                "grade_code": grade_mapper(hist[1].grade_code),
+                "kyori": float(hist[1].kyori),
+                "shusso_tosu": float(hist[1].shusso_tosu),
+                "soha_time": soha_time_parser(hist[0].soha_time),
+                "time_sa": parse_time_sa(hist[0].time_sa),
+                "kohan_3f": float(hist[0].kohan_3f),
+                "nyusen_juni": int(hist[0].nyusen_juni),
+                "corner_3": int(hist[0].corner_3),
+                "corner_4": int(hist[0].corner_4),
+                "tansho_odds": float(hist[0].tansho_odds),
+                "tansho_ninkijun": int(hist[0].tansho_ninkijun),
+            }
 
             horses_history.loc[
-                hist_index + int(horse.umaban) * 10, hist_df.columns.values
-            ] = hist_df.values
+                hist_index + int(horse.umaban) * 10, hist_dict.keys()
+            ] = hist_dict.values()
             if hist_index == history_number:
                 break
             hist_index += 1
@@ -227,11 +231,8 @@ for race in races:
                 + 1
                 + history_number
             ] = horses_history.loc[int(horse.umaban) * 10 + hist_len].values
-    
-    horses_history["condition"] = (
-        horses_history["babajotai_code_shiba"]
-        + horses_history["babajotai_code_dirt"]
-    )
+
+    print(horses_history)
     horses_history = horses_history[history_target_columns]
 
     # スケーリング
@@ -266,7 +267,8 @@ for race in races:
         horses_history["futan_juryo"] - 510.0
     ) / 90.0
 
-    horses_history[rank_target].fillna(1, inplace=True)
+    for rank_column in rank_target:
+        horses_history.fillna({rank_column: 1}, inplace=True)
     horses_history.fillna({"tansho_odds": 10000}, inplace=True)
     horses_history.fillna(0, inplace=True)
     horses_history["tansho_odds"] = 10 / horses_history["tansho_odds"]
@@ -297,7 +299,6 @@ for race in races:
         uma_column = [
             str(i) + "_" + column for column in current_horse_columns
         ]
-        print(horse_current.loc[i].T.values)
         current_uma = pd.DataFrame(
             [horse_current.loc[i].values],
             index=[row_index],
