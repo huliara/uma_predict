@@ -15,7 +15,6 @@ def horse_to_list(horse, seinengappi):
             )
             - datetime.datetime.strptime(seinengappi, "%Y%m%d")
         ).days,
-        int(horse.umaban),
         0
         if horse.seibetsu_code == "2"
         else 1
