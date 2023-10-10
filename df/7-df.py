@@ -1,9 +1,16 @@
 import pandas as pd
-from uma_predict.db.models import Race, Career, Horse, Track
-from uma_predict.db.database import SessionLocal
+from db.models import Race, Career, Horse, Track
+from db.database import SessionLocal
 from sqlalchemy.future import select
 from sqlalchemy import desc
-from utils import horse_to_list, field_mapper, grade_mapper, roll_mapper, condition_mapper, soha_time_parser   
+from utils import (
+    horse_to_list,
+    field_mapper,
+    grade_mapper,
+    roll_mapper,
+    condition_mapper,
+    soha_time_parser,
+)
 import pprint
 import random
 import datetime
@@ -17,15 +24,6 @@ bataiju_std = 28.81961143804636
 pd.set_option("display.max_columns", 1000)
 db = SessionLocal()
 
-column_name = [
-    "field",
-    "roll",
-    "field_condition",
-    "grade",
-    "distance",
-    "number_of_horse",
-]
-
 race_condition = [
     "field",
     "roll",
@@ -35,75 +33,45 @@ race_condition = [
     "number_of_horse",
 ]
 
-current_horse_columns = [
-    "umaban",
-    "sex",
+current_horse_column_master = [
+    "barei" "seibetu",
     "age",
     "bataiju",
-    "blinker",
-    "weight",
+    "blinker_shiyo_kubun",
+    "futan_juryo",
+    "tansho_odds",
+    "tansho_ninkijun",
 ]
 
-horses_history_columns = [
-    "age",
-    "umaban",
+horse_hist_column_master = [
+    "barei",
     "bataiju",
-    "blinker",
-    "weight",
-    "field",
+    "blinker_shiyo_kubun",
+    "futan_juryo",
+    "condition" "field",
     "roll",
-    "field_condition",
-    "grade",
-    "distance",
-    "number_of_horse",
-    "time",
-    "time_diff",
-    "last_3f",
-    "rank",
-    "3corner_rank",
-    "4corner_rank",
+    "grade_code",
+    "kyori",
+    "shusso_tosu",
+    "soha_time",
+    "time_sa",
+    "kohan_3f",
+    "nyusen_juni",
+    "corner_3",
+    "corner_4",
+    "tansho_odds",
+    "tansho_ninkijun",
 ]
 
 
-
-
-
-
-history_number = 2
+hist_number = 5
 predict_rank = 3
 
-
-for i in range(1, 19):
-    current_horse_info = [
-        str(i) + "_umaban",
-        str(i) + "_sex",
-        str(i) + "_age",
-        str(i) + "_bataiju",
-        str(i) + "_blinker",
-        str(i) + "_weight",
-    ]
-    column_name.extend(current_horse_info)
-    for j in range(1, history_number + 1):
-        history = [
-            str(i) + "_" + str(j) + "_age",  # 8*365で割る
-            str(i) + "_" + str(j) + "_umaban",  # 18で割る
-            str(i) + "_" + str(j) + "_bataiju",  # 全体で標準化
-            str(i) + "_" + str(j) + "_blinker",
-            str(i) + "_" + str(j) + "_weight",  # 全体で正規化
-            str(i) + "_" + str(j) + "_field",
-            str(i) + "_" + str(j) + "_roll",
-            str(i) + "_" + str(j) + "_field_condition",
-            str(i) + "_" + str(j) + "_grade",
-            str(i) + "_" + str(j) + "_distance",  # 正規化
-            str(i) + "_" + str(j) + "_number_of_horse",  # 18で割る
-            str(i) + "_" + str(j) + "_time",  # コースごとに標準化
-            str(i) + "_" + str(j) + "_time_diff",  # そのまま使う
-            str(i) + "_" + str(j) + "_last_3f",  # コースごとに標準化
-            str(i) + "_" + str(j) + "_rank",
-            str(i) + "_" + str(j) + "_3corner_rank",
-            str(i) + "_" + str(j) + "_4corner_rank",
-        ]
-        column_name.extend(history)
+race_df_columns = []
+race_df_columns.append(current_horse_column_master)
+for i in range(1, hist_number + 1):
+    hist_column = [column + str(i) for column in horse_hist_column_master]
+    race_df_columns.append(hist_column)
 
 
 horse_history_index = [
@@ -149,27 +117,32 @@ for race in races:
     for horse in horses:
         nyusen_umaban_list[int(horse.nyusen_juni) - 1] = int(horse.umaban)
 
-    horse_current = pd.DataFrame(
-        columns=current_horse_columns, index=list(range(1, 19))
-    )
-    bottom_horses_number = int(race.nyusen_tosu) // 5 + 1
-    bottom_horses = list(
-        filter(
-            lambda x: int(x.nyusen_juni)
-            >= int(race.nyusen_tosu) - bottom_horses_number + 1,
-            horses,
-        )
-    )
+    race_df = pd.DataFrame(index=list(range(1, 19)))
 
-    horses_history = pd.DataFrame(
-        columns=horses_history_columns, index=[horse_history_index]
-    )
     for horse in horses:
         horse_master = db.get(Horse, horse.ketto_toroku_bango)
+        current_horse_dict = {
+            "barei": (
+                datetime.datetime.strptime(
+                    horse.kaisai_nen + horse.kaisai_tsukihi, "%Y%m%d"
+                )
+                - datetime.datetime.strptime(
+                    horse_master.seinengappi, "%Y%m%d"
+                )
+            ).days,
+            "seibetu": 0
+            if horse.seibetsu_code == "2"
+            else 1
+            if horse.seibetsu_code == "1"
+            else 2,
+            "bataiju": int(horse.bataiju),
+            "blinker_shiyo_kubun": int(horse.blinker_shiyo_kubun),
+            "futan_juryo": int(horse.futan_juryo),
+            "tansho_odds": float(horse.tansho_odds),
+            "tansho_ninkijun": int(horse.tansho_ninkijun),
+        }
 
-        horse_current.loc[int(horse.umaban)] = horse_to_list(
-            horse, horse_master.seinengappi
-        )
+        race_df.loc[int(horse.umaban)] = current_horse_dict.values()
 
         horse_hist = db.scalars(
             select(Career)
@@ -202,13 +175,13 @@ for race in races:
                     Race.track_code >= "00",
                 )
             ).first()
+
             if past_race is None:
                 continue
-            past_race_condition = (
+            past_race_condition = int(past_race.babajotai_code_shiba) + int(
                 past_race.babajotai_code_dirt
-                if past_race.track_code == "23" or past_race.track_code == "24"
-                else past_race.babajotai_code_shiba
             )
+
             time_mean = db.scalars(
                 select(Track).filter(
                     Track.keibajo_code == past_race.keibajo_code,
@@ -232,104 +205,58 @@ for race in races:
                 )
             ).first()
 
-            hist_row = [
-                (
-                    datetime.datetime.strptime(
-                        hist.kaisai_nen + hist.kaisai_tsukihi, "%Y%m%d"
-                    )
-                    - datetime.datetime.strptime(
-                        horse_master.seinengappi, "%Y%m%d"
-                    )
-                ).days,
-                int(hist.umaban),
-                int(hist.bataiju),
-                int(hist.blinker_shiyo_kubun),
-                float(hist.futan_juryo),
-                field_mapper(past_race.track_code),
-                roll_mapper(past_race.track_code),
-                condition_mapper(past_race),
-                grade_mapper(past_race.grade_code),
-                int(past_race.kyori),
-                int(past_race.shusso_tosu),
-                -(soha_time_parser(hist.soha_time) - time_mean.mean)
-                / time_mean.std,
-                float(hist.time_sa[1:]) * 0.1
+            hist_dict = {
+                "barei": (
+                    (
+                        datetime.datetime.strptime(
+                            hist.kaisai_nen + hist.kaisai_tsukihi, "%Y%m%d"
+                        )
+                        - datetime.datetime.strptime(
+                            horse_master.seinengappi, "%Y%m%d"
+                        )
+                    ).days
+                )
+                / (8 * 365),
+                "bataiju": 4
+                + (float(hist.bataiju) - bataiju_mean) / bataiju_std,
+                "blinker_shiyo_kubun": int(hist.blinker_shiyo_kubun),
+                "futan_juryo": (float(hist.futan_juryo) - 510.0) / 90.0,
+                "condition": past_race_condition,
+                "field": field_mapper(past_race.track_code),
+                "roll": roll_mapper(past_race.track_code),
+                "grade_code": grade_mapper(past_race.grade_code),
+                "kyori": (float(past_race.kyori) - 1000.0) / 2600.0,
+                "shusso_tosu": float(past_race.shusso_tosu) / 18,
+                "soha_time": 4
+                - (
+                    (soha_time_parser(hist.soha_time) - time_mean.mean)
+                    / time_mean.std
+                ),
+                "time_sa": float(hist.time_sa[1:]) * 0.1
                 if hist.time_sa[0] == "+"
                 else 0.0,
-                -(float(hist.kohan_3f) * 0.1 - last3f_mean.mean)
-                / last3f_mean.std,
-                int(hist.nyusen_juni),
-                int(hist.corner_3),
-                int(hist.corner_4),
+                "kohan_3f": 1
+                - (
+                    (float(hist.kohan_3f) * 0.1 - last3f_mean.mean)
+                    / last3f_mean.std
+                ),
+                "nyusen_juni": 1 / int(hist.nyusen_juni),
+                "corner_3": 1 / int(hist.corner_3),
+                "corner_4": 1 / int(hist.corner_4),
+                "tansho_odds": 10 / float(hist.tansho_odds),
+                "tansho_ninkijun": 1 / int(hist.tansho_ninkijun),
+            }
+            hist_dict_key = [
+                str(hist_index) + keys for keys in hist_dict.keys()
             ]
-            horses_history.loc[hist_index + int(horse.umaban) * 10] = hist_row
+            race_df.loc[int(horse.umaban), hist_dict_key] = hist_dict.values()
+
             if hist_index == history_number:
                 break
             hist_index += 1
-        # 過去のレースが少ない場合は、最後のレースをコピーする
-        if hist_len >= 1 and hist_len < history_number:
-            horses_history.loc[
-                int(horse.umaban) * 10
-                + 1
-                + hist_len : int(horse.umaban) * 10
-                + 1
-                + history_number
-            ] = horses_history.loc[int(horse.umaban) * 10 + hist_len].values
-    # Nanを埋める
-    for row in horse_current[horse_current["umaban"].isnull()].itertuples():
-        bottom_horse = bottom_horses[random.randint(0, len(bottom_horses) - 1)]
-        horse_current.loc[row.Index] = horse_current[
-            horse_current["umaban"] == int(bottom_horse.umaban)
-        ].values
-        horse_current.at[row.Index, "umaban"] = row.Index
-        horses_history.loc[
-            1 + row.Index * 10 : 1 + row.Index * 10 + history_number,
-            horses_history_columns,
-        ] = horses_history.loc[
-            1
-            + int(bottom_horse.umaban) * 10 : 1
-            + int(bottom_horse.umaban) * 10
-            + history_number,
-            horses_history_columns,
-        ].values
-    horses_history.fillna(
-        {
-            "age": horses_history["age"].mean(),
-            "umaban": horses_history["umaban"].mode().iloc[0],
-            "bataiju": horses_history["bataiju"].mean(),
-            "blinker": horses_history["blinker"].mode().iloc[0],
-            "weight": horses_history["weight"].mode().iloc[0],
-            "field": horses_history["field"].mode().iloc[0],
-            "roll": horses_history["roll"].mode().iloc[0],
-            "field_condition": horses_history["field_condition"]
-            .mode()
-            .iloc[0],
-            "grade": horses_history["grade"].mode().iloc[0],
-            "distance": horses_history["distance"].min(),
-            "number_of_horse": 18,
-            "time": horses_history["time"].max(),
-            "time_diff": horses_history["time_diff"].mean(),
-            "last_3f": horses_history["last_3f"].min(),
-            "rank": random.randint(4, 18),
-            "3corner_rank": random.randint(4, 18),
-            "4corner_rank": random.randint(4, 18),
-        },
-        inplace=True,
-    )
-    # スケーリング
-    horses_history["age"] = horses_history["age"] / (8 * 365)
-    horses_history["umaban"] = horses_history["umaban"] / 18
-    horses_history["bataiju"] = (
-        horses_history["bataiju"] - bataiju_mean
-    ) / bataiju_std
-    horses_history["grade"] = horses_history["grade"] / 6
-    horses_history["number_of_horse"] = horses_history["number_of_horse"] / 18
 
-    horses_history["weight"] = (horses_history["weight"] - 510.0) / 90.0
-    horses_history["distance"] = (horses_history["distance"] - 1000.0) / 2600.0
-    horses_history["rank"] = horses_history["rank"] / 18
-    horses_history["3corner_rank"] = horses_history["3corner_rank"] / 18
-    horses_history["4corner_rank"] = horses_history["4corner_rank"] / 18
+    # Nanを埋める
+
     row_index = int(
         race.kaisai_nen
         + race.kaisai_tsukihi
@@ -403,4 +330,4 @@ print(time_end - parse_start)
 pprint.pprint(data)
 print(data.isnull().values.sum())
 target_year = "2012_2021"
-data.to_csv("./data4/" + target_year +"_" + str(history_number) + ".csv")
+data.to_csv("./data4/" + target_year + "_" + str(history_number) + ".csv")
