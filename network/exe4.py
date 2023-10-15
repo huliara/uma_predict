@@ -5,8 +5,8 @@ from pytorch_lightning import Trainer
 import polars as pl
 
 def main():
-    train_data=pl.read_parquet("df\data7\\2014-2021-5-8.parquet")
-    test_data=pl.read_parquet("df\data7\\2022-5-1.parquet")
+    train_data=pl.read_parquet("df\data9\\2016-2021-5-9.parquet")
+    test_data=pl.read_parquet("df\data8\\2022-5-1.parquet")
     print(train_data.shape)
     print(test_data.shape)
     column_len=train_data.shape[1]-18

@@ -68,9 +68,6 @@ class HorsePredictor(pl.LightningModule):
         self.log("test_loss", loss, prog_bar=True)
         return loss
 
-    def on_test_epoch_end(self):
-        self.log("test_acc_epoch", self.test_acc.compute(), prog_bar=True)
-        self.test_acc.reset()
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=0.001)
