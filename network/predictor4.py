@@ -11,7 +11,7 @@ class HorsePredictor(pl.LightningModule):
         self,
         input_size,
         output_size,
-        hiden_layer_size: list[int] = [2048, 512, 32],
+        hiden_layer_size: list[int] = [2048,512,32],
     ):
         super().__init__()
         self.train_acc = Accuracy(task="multiclass", num_classes=18)
@@ -68,6 +68,9 @@ class HorsePredictor(pl.LightningModule):
         self.log("test_loss", loss, prog_bar=True)
         return loss
 
+    def on_test_epoch_end(self):
+        self.log("test_acc_epoch", self.test_acc.compute(), prog_bar=True)
+        self.test_acc.reset()
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001)
+        return torch.optim.Adam(self.parameters(), lr=0.001,weight_decay=0.0004)

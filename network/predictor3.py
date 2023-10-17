@@ -67,4 +67,4 @@ class HorsePredictor(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001)
+        return torch.optim.Adam(self.parameters(), lr=0.001,weight_decay=0.0001)
