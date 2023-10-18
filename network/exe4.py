@@ -19,7 +19,7 @@ def main():
     if torch.cuda.is_available():
         trainer = Trainer(gpus=1, max_epochs=200)
     else:
-        trainer=Trainer(max_epochs=120)
+        trainer=Trainer(max_epochs=30)
 
     trainer.fit(horse_predictor, horse_data)
     trainer.test(horse_predictor, horse_data)

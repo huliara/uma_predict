@@ -73,4 +73,4 @@ class HorsePredictor(pl.LightningModule):
         self.test_acc.reset()
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=0.001,weight_decay=0.0004)
+        return torch.optim.Adam(self.parameters(), lr=0.001,weight_decay=0.001)
