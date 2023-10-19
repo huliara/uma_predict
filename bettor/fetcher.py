@@ -11,7 +11,7 @@ import traceback
 # asyncioの入れ子を許す
 import nest_asyncio
 
-from uma_predict.db.database import SessionLocal
+from db.database import SessionLocal
 
 
 nest_asyncio.apply()
@@ -245,12 +245,14 @@ class Fetcher:
         kaisai_tsukihi: str,
         keibajo_code: str,
         race_bago: str,
+        race_name_abbre: str,
         db=SessionLocal(),
     ) -> None:
         self.kaisai_nen = kaisai_nen
         self.kaisai_tsukihi = kaisai_tsukihi
-        self.kaibajo_code = keibajo_code
+        self.keibajo_code = keibajo_code
         self.race_bago = race_bago
+        self.race_name_abbre = race_name_abbre  # 1回中山5日など
         self.tansho_odds = None
         self.fukusho_odds = None
         self.wide_odds = None
@@ -260,5 +262,51 @@ class Fetcher:
         self.sanrentan_odds = None
         self.horse_data = None
         self.db = db
+
     def get_odds_from_db(self):
-        
+        pass
+
+    async def get_recent_odds_from_jra(self):
+        async with playwright_context() as (browser, context):
+            page = await context.new_page()
+            await Fetcher.go_recent_race_odds(
+                page,self.race_name_abbre
+            )
+            odds_table = page.locator("#odds_list table")
+            for tr in await odds_table.locator("tbody tr").all():
+                number = int(await tr.locator("td.num").inner_text())
+                odds = float_or_nan(await tr.locator("td.odds_tan").inner_text())
+                nagashi = umatan_table[umatan_table["number1"] == number]["odds"]
+                print(f"{race}レース")
+                print(nagashi)
+                nagashi_value = combine_odds(nagashi)
+                number_list.append(number)
+                odds_list.append(odds)
+                nagashi_list.append(nagashi_value)
+            print(nagashi_list)
+            table = pd.DataFrame(
+                {"number": number_list, "odds": odds_list, "nagashi": nagashi_list}
+            )
+            table["place"] = place
+            table["race"] = race
+
+            # 列の並び替え
+            columns = ["place", "race", "number", "odds", "nagashi"]
+            table = table[columns]
+
+            return table
+
+            
+
+    def get_horse_data_from_jra(self):
+        pass
+
+    @staticmethod
+    async def go_recent_race_odds(self, page, race_name_abbre):
+        await page.goto("https://jra.jp/")
+        async with page.expect_navigation():
+            await page.get_by_role("link", name="オッズ").click()
+        async with page.expect_navigation():
+            await page.get_by_role("link", name=race_name_abbre).click()
+        async with page.expect_navigation():
+            
