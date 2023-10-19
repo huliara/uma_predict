@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Bettor:
     def __init__(self, rank_prob: list, race_key: int) -> None:
         self.rank_prob = rank_prob

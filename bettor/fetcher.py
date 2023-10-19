@@ -3,14 +3,15 @@ import contextlib
 from playwright.async_api import Playwright, async_playwright, expect
 import numpy as np
 import pandas as pd
-
+from sqlalchemy.future import select
 import asyncio
 from pathlib import Path
 import traceback
-
+from uma_predict.db.models import Horse,Race,Career
 # asyncioの入れ子を許す
 import nest_asyncio
-
+from uma_predict.df.alpha_df import shutsubahyo,race_condition
+from uma_predict.df.utils import field_mapper,condition_mapper,grade_mapper
 from db.database import SessionLocal
 
 
@@ -268,6 +269,43 @@ class Fetcher:
     def get_odds_from_db(self):
         pass
 
+    def get_horse_data_from_db(self):
+        db=self.db
+        race=db.scalars(
+            select(Race).filter(
+                Race.kaisai_nen==self.kaisai_nen,
+                Race.kaisai_tsukihi==self.kaisai_tsukihi,
+                Race.keibajo_code==self.keibajo_code,
+                Race.race_bango ==self.race_bago
+            )
+        ).one()
+        race_df=shutsubahyo(race,db)
+        result_row = pd.DataFrame(
+        [
+            [
+                field_mapper(race.track_code),
+                condition_mapper(race),
+                grade_mapper(race.grade_code),
+                (int(race.kyori) - 1000.0) / 2600.0,
+                int(race.shusso_tosu) / 18.0,
+            ]
+        ],
+        columns=race_condition,
+        )
+        result_df = race_df[["result"]].T.copy()
+        result_df.columns = ["result" + str(i) for i in range(1, 19)]
+        race_df.drop(columns="result", inplace=True)
+        for i in range(0, 18):
+            result_horse_columns = [str(i) + column for column in race_df.columns]
+            horse_row = race_df.iloc[[i]].copy()
+            horse_row.columns = result_horse_columns
+            result_row = pd.concat([result_row, horse_row], axis=1)
+        result_row = pd.concat([result_row, result_df], axis=1)
+
+        self.horse_data=result_row
+
+
+
     async def get_recent_odds_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
@@ -340,8 +378,12 @@ class Fetcher:
             self.sanrenpuku_odds=sanrenpuku_odds
 
 
-    def get_horse_data_from_jra(self):
-        pass
+    async def get_horse_data_from_jra(self):
+         async with playwright_context() as (browser, context):
+            page = await context.new_page()
+            await page.goto("https://jra.jp/")
+            async with page.expect_navigation():
+                await page.get_by_role("link", name="オッズ").click()
 
     @staticmethod
     async def scraip_odds_two_horse(page,shusso_tosu):
