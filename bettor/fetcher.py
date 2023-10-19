@@ -254,8 +254,10 @@ class Fetcher:
         self.race_bago = race_bago
         self.race_name_abbre = race_name_abbre  # 1回中山5日など
         self.tansho_odds = None
-        self.fukusho_odds = None
-        self.wide_odds = None
+        self.fukusho_odds_low = None
+        self.fukusho_odds_up = None
+        self.wide_odds_low = None
+        self.wide_odds_up=None
         self.umaren_odds = None
         self.umatan_odds = None
         self.sanrenpuku_odds = None
@@ -273,34 +275,87 @@ class Fetcher:
                 page,self.race_name_abbre
             )
             odds_table = page.locator("#odds_list table")
+            shusso_tosu=await odds_table.locator("tbody tr").count()
+            tansho_odds=np.zeros(shusso_tosu)
+            fukusho_odds_low=np.zeros(shusso_tosu)
+            fukusho_odds_up=np.zeros(shusso_tosu)
             for tr in await odds_table.locator("tbody tr").all():
                 number = int(await tr.locator("td.num").inner_text())
-                odds = float_or_nan(await tr.locator("td.odds_tan").inner_text())
-                nagashi = umatan_table[umatan_table["number1"] == number]["odds"]
-                print(f"{race}レース")
-                print(nagashi)
-                nagashi_value = combine_odds(nagashi)
-                number_list.append(number)
-                odds_list.append(odds)
-                nagashi_list.append(nagashi_value)
-            print(nagashi_list)
-            table = pd.DataFrame(
-                {"number": number_list, "odds": odds_list, "nagashi": nagashi_list}
-            )
-            table["place"] = place
-            table["race"] = race
-
-            # 列の並び替え
-            columns = ["place", "race", "number", "odds", "nagashi"]
-            table = table[columns]
-
-            return table
-
+                tansho_value = float_or_nan(await tr.locator("td.odds_tan").inner_text())
+                fukusho_value_low = float_or_nan(await tr.locator("td.odds_fuku span.min").inner_text())
+                fukusho_value_up = float_or_nan(await tr.locator("td.odds_fuku span.max").inner_text())
+                tansho_odds[number-1]=tansho_value
+                fukusho_odds_low[number-1]=fukusho_value_low
+                fukusho_odds_up[number-1]=fukusho_value_up
             
+            self.tansho_odds=tansho_odds
+            self.fukusho_odds_low=fukusho_odds_low
+            self.fukusho_odds_up=fukusho_odds_up
+
+            await page.get_by_role("link", name="馬連").click()
+            umaren_odds=await self.scraip_odds_two_horse(page,shusso_tosu)
+            self.umaren_odds=umaren_odds
+
+            await page.get_by_role("link", name="ワイド").click()
+            wide_odds_min=np.zeros((shusso_tosu,shusso_tosu))
+            wide_odds_max=np.zeros((shusso_tosu,shusso_tosu))
+            odds_tables = page.locator("#odds_list ul")
+            for li in odds_tables.locator("li").all():
+                for tr in li.locator("tbody tr").all():
+                    umaban_str = await tr.locator("td.num").inner_text().split("-")
+                    umaban=[int(umaban_str[0]),int(umaban_str[1])]
+                    wide_value_min=float_or_nan(await tr.locator("td.odds span.min").inner_text())
+                    wide_value_max=float_or_nan(await tr.locator("td.odds span.max").inner_text())
+                    wide_odds_min[umaban[0]-1,umaban[1]-1]=wide_value_min
+                    wide_odds_max[umaban[0]-1,umaban[1]-1]=wide_value_max
+
+            self.wide_odds_low=wide_odds_min
+            self.wide_odds_up=wide_odds_max
+            
+            await page.get_by_role("link", name="馬単").click()
+            umatan_odds=await self.scraip_odds_two_horse(page,shusso_tosu)
+            self.umatan_odds=umatan_odds
+
+            await page.get_by_role("link", name="三連単").click()
+            odds_tables = page.locator("#odds_list")
+            sanrentan_odds=np.zeros((shusso_tosu,shusso_tosu,shusso_tosu))
+            for ul in odds_table.locator("ul").all():
+                for li in ul.locator("li").all():
+                    for tr in li.locator("tbody tr").all():
+                        umaban_str = await tr.locator("td.num").inner_text().split("-")
+                        umaban=[int(umaban_str[0]),int(umaban_str[1]),int(umaban_str[2])]
+                        sanrentan_value=float_or_nan(await tr.locator("td.odds").inner_text())
+                        sanrentan_odds[umaban[0]-1,umaban[1]-1,umaban[2]-1]=sanrentan_value
+            self.sanrentan_odds=sanrentan_odds
+
+            await page.get_by_role("link", name="三連複").click()
+            odds_tables = page.locator("#odds_list ul")
+            sanrenpuku_odds=np.zeros((shusso_tosu,shusso_tosu,shusso_tosu))
+            for li in odds_tables.locator("li").all():
+                for tr in li.locator("tbody tr").all():
+                    umaban_str = await tr.locator("td.num").inner_text().split("-")
+                    umaban=[int(umaban_str[0]),int(umaban_str[1]),int(umaban_str[2])]
+                    sanrenpuku_value=float_or_nan(await tr.locator("td.odds").inner_text())
+                    sanrenpuku_odds[umaban[0]-1,umaban[1]-1,umaban[2]-1]=sanrenpuku_value
+            self.sanrenpuku_odds=sanrenpuku_odds
+
 
     def get_horse_data_from_jra(self):
         pass
 
+    @staticmethod
+    async def scraip_odds_two_horse(page,shusso_tosu):
+        umaren_odds=np.zeros((shusso_tosu,shusso_tosu))
+        odds_tables = page.locator("#odds_list ul")
+        for li in odds_tables.locator("li").all():
+            for tr in li.locator("tbody tr").all():
+                umaban_str = await tr.locator("td.num").inner_text().split("-")
+                umaban=[int(umaban_str[0]),int(umaban_str[1])]
+                umaren_value=float_or_nan(await tr.locator("td.odds").inner_text())
+                umaren_odds[umaban[0]-1,umaban[1]-1]=umaren_value
+
+        return umaren_odds
+    
     @staticmethod
     async def go_recent_race_odds(self, page, race_name_abbre):
         await page.goto("https://jra.jp/")
@@ -309,4 +364,4 @@ class Fetcher:
         async with page.expect_navigation():
             await page.get_by_role("link", name=race_name_abbre).click()
         async with page.expect_navigation():
-            
+    

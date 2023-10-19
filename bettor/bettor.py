@@ -16,8 +16,10 @@ class Bettor:
         )
         self.sanrentan_prob = np.zeros((shusso_tosu, shusso_tosu, shusso_tosu))
         self.tansho_EXP = None
-        self.fukusho_EXP = None
-        self.wide_EXP = None
+        self.fukusho_EXP_low = None
+        self.fukusho_EXP_up = None
+        self.wide_EXP_low = None
+        self.wide_EXP_up = None
         self.umaren_EXP = None
         self.umatan_EXP = None
         self.sanrenpuku_EXP = None
