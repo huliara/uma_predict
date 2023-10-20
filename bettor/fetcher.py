@@ -7,11 +7,22 @@ from sqlalchemy.future import select
 import asyncio
 from pathlib import Path
 import traceback
-from uma_predict.db.models import Horse,Race,Career,Tansho,Umaren,Umatan,Wide,Sanrenpuku,Sanrentan
+from uma_predict.db.models import (
+    Horse,
+    Race,
+    Career,
+    Tansho,
+    Umaren,
+    Umatan,
+    Wide,
+    Sanrenpuku,
+    Sanrentan,
+)
+
 # asyncioの入れ子を許す
 import nest_asyncio
-from uma_predict.df.alpha_df import shutsubahyo,race_condition
-from uma_predict.df.utils import field_mapper,condition_mapper,grade_mapper
+from uma_predict.df.alpha_df import shutsubahyo, race_condition
+from uma_predict.df.utils import field_mapper, condition_mapper, grade_mapper
 from db.database import SessionLocal
 import torch
 
@@ -254,11 +265,11 @@ class Fetcher:
         self.keibajo_code = keibajo_code
         self.race_bango = race_bago
         self.race_name_abbre = race_name_abbre  # 1回中山5日など
-        self.tansho_odds =None
+        self.tansho_odds = None
         self.fukusho_odds_low = None
         self.fukusho_odds_up = None
         self.wide_odds_low = None
-        self.wide_odds_up=None
+        self.wide_odds_up = None
         self.umaren_odds = None
         self.umatan_odds = None
         self.sanrenpuku_odds = None
@@ -267,238 +278,306 @@ class Fetcher:
         self.db = db
 
     def get_odds_from_db(self):
-        data=self.db.scalars(
+        data = self.db.scalars(
             select(Tansho).filter(
-                Tansho.kaisai_nen==self.kaisai_nen,
-                Tansho.kaisai_tsukihi==self.kaisai_tsukihi,
-                Tansho.keibajo_code==self.keibajo_code,
-                Tansho.race_bango==self.race_bango,
-            )).one()
-        tansho=data.odds_tansho.rstrip()
-        tansho_str=[tansho[i:i+8] for i in range(0,len(tansho),8 )]
-        tansho_odds=np.empty(len(tansho_str))
-        for tansho in tansho_str:
-            tansho_odds[int(tansho[0:2])-1]=float_or_nan(tansho[2:6])*0.1
-        self.tansho_odds=tansho_odds
-
-        fukusho=data.odds_fukusho.rstrip()
-        fukusho_str=[fukusho[i:i+12] for i in range(0,len(fukusho),12 )]
-        fukusho_odds_low=np.empty(len(fukusho_str))
-        fukusho_odds_up=np.empty(len(fukusho_str))
-        for fukusho in fukusho_str:
-            fukusho_odds_low[int(fukusho[0:2])-1]=float_or_nan(fukusho[2:6])*0.1
-            fukusho_odds_up[int(fukusho[0:2])-1]=float_or_nan(fukusho[6:10])*0.1
-        self.fukusho_odds_low=fukusho_odds_low
-        self.fukusho_odds_up=fukusho_odds_up
-
-        data=self.db.scalars(
-            select(Umaren).filter(
-                Umaren.kaisai_nen==self.kaisai_nen,
-                Umaren.kaisai_tsukihi==self.kaisai_tsukihi,
-                Umaren.keibajo_code==self.keibajo_code,
-                Umaren.race_bango==self.race_bango,)).one()
-        striped=data.odds_umaren.rstrip()
-        odds_str=[striped[i:i+13] for i in range(0,len(striped),13 )]
-        target_odds=np.zeros((len(odds_str),len(odds_str)))
-        for odd in odds_str:
-            target_odds[int(odd[0:2])-1,int(odd[2:4])-1]=float_or_nan(odd[4:10])*0.1
-        self.umaren_odds=target_odds
-
-        data=self.db.scalars(
-            select(Umatan).filter(
-                Umatan.kaisai_nen==self.kaisai_nen,
-                Umatan.kaisai_tsukihi==self.kaisai_tsukihi,
-                Umatan.keibajo_code==self.keibajo_code,
-                Umatan.race_bango==self.race_bango,)).one()
-        striped=data.odds_umatan.rstrip()
-        odds_str=[striped[i:i+13] for i in range(0,len(striped),13 )]
-        target_odds=np.empty((len(odds_str),len(odds_str)))
-        for odd in odds_str:
-            target_odds[int(odd[0:2])-1,int(odd[2:4])-1]=float_or_nan(odd[4:10])*0.1
-        self.umatan_odds=target_odds
-
-        data=self.db.scalars(
-            select(Wide).filter(
-                Wide.kaisai_nen==self.kaisai_nen,
-                Wide.kaisai_tsukihi==self.kaisai_tsukihi,
-                Wide.keibajo_code==self.keibajo_code,
-                Wide.race_bango==self.race_bango,)).one()
-        striped=data.odds_wide.rstrip()
-        odds_str=[striped[i:i+13] for i in range(0,len(striped),13 )]
-        target_odds_low=np.zeros((len(odds_str),len(odds_str)))
-        target_odds_up=np.zeros((len(odds_str),len(odds_str)))
-        for odd in odds_str:
-            target_odds_low[int(odd[0:2])-1,int(odd[2:4])-1]=float_or_nan(odd[4:9])*0.1
-            target_odds_up[int(odd[0:2])-1,int(odd[2:4])-1]=float_or_nan(odd[9:14])*0.1
-        self.wide_odds_low=target_odds_low
-        self.wide_odds_up=target_odds_up
-
-        data=self.db.scalars(
-            select(Sanrentan).filter(
-                Sanrentan.kaisai_nen==self.kaisai_nen,
-                Sanrentan.kaisai_tsukihi==self.kaisai_tsukihi,
-                Sanrentan.keibajo_code==self.keibajo_code,
-                Sanrentan.race_bango==self.race_bango,)).one()
-        striped=data.odds_sanrentan.rstrip()
-        odds_str=[striped[i:i+17] for i in range(0,len(striped),17 )]
-        target_odds=np.empty((len(odds_str),len(odds_str),len(odds_str)))
-        for odd in odds_str:
-            target_odds[int(odd[0:2])-1,int(odd[2:4])-1,int(odd[4:6])-1]=float_or_nan(odd[6:13])*0.1
-        self.sanrentan_odds=target_odds
-
-        data=self.db.scalars(
-            select(Sanrenpuku).filter(
-                Sanrenpuku.kaisai_nen==self.kaisai_nen,
-                Sanrenpuku.kaisai_tsukihi==self.kaisai_tsukihi,
-                Sanrenpuku.keibajo_code==self.keibajo_code,
-                Sanrenpuku.race_bango==self.race_bango,)).one()
-        striped=data.odds_sanrenpuku.rstrip()
-        odds_str=[striped[i:i+15] for i in range(0,len(striped),15 )]
-        target_odds=np.zeros((len(odds_str),len(odds_str),len(odds_str)))
-        for odd in odds_str:
-            target_odds[int(odd[0:2])-1,int(odd[2:4])-1,int(odd[4:6])-1]=float_or_nan(odd[6:12])*0.1
-        self.sanrenpuku_odds=target_odds
-
-
-
-
-    def get_horse_data_from_db(self):
-        db=self.db
-        race=db.scalars(
-            select(Race).filter(
-                Race.kaisai_nen==self.kaisai_nen,
-                Race.kaisai_tsukihi==self.kaisai_tsukihi,
-                Race.keibajo_code==self.keibajo_code,
-                Race.race_bango ==self.race_bango
+                Tansho.kaisai_nen == self.kaisai_nen,
+                Tansho.kaisai_tsukihi == self.kaisai_tsukihi,
+                Tansho.keibajo_code == self.keibajo_code,
+                Tansho.race_bango == self.race_bango,
             )
         ).one()
-        race_df=shutsubahyo(race,db)
+        tansho = data.odds_tansho.rstrip()
+        tansho_str = [tansho[i : i + 8] for i in range(0, len(tansho), 8)]
+        tansho_odds = np.empty(len(tansho_str))
+        for tansho in tansho_str:
+            tansho_odds[int(tansho[0:2]) - 1] = float_or_nan(tansho[2:6]) * 0.1
+        self.tansho_odds = tansho_odds
+
+        fukusho = data.odds_fukusho.rstrip()
+        fukusho_str = [fukusho[i : i + 12] for i in range(0, len(fukusho), 12)]
+        fukusho_odds_low = np.empty(len(fukusho_str))
+        fukusho_odds_up = np.empty(len(fukusho_str))
+        for fukusho in fukusho_str:
+            fukusho_odds_low[int(fukusho[0:2]) - 1] = (
+                float_or_nan(fukusho[2:6]) * 0.1
+            )
+            fukusho_odds_up[int(fukusho[0:2]) - 1] = (
+                float_or_nan(fukusho[6:10]) * 0.1
+            )
+        self.fukusho_odds_low = fukusho_odds_low
+        self.fukusho_odds_up = fukusho_odds_up
+
+        data = self.db.scalars(
+            select(Umaren).filter(
+                Umaren.kaisai_nen == self.kaisai_nen,
+                Umaren.kaisai_tsukihi == self.kaisai_tsukihi,
+                Umaren.keibajo_code == self.keibajo_code,
+                Umaren.race_bango == self.race_bango,
+            )
+        ).one()
+        striped = data.odds_umaren.rstrip()
+        odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
+        target_odds = np.zeros((len(odds_str), len(odds_str)))
+        for odd in odds_str:
+            target_odds[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
+                float_or_nan(odd[4:10]) * 0.1
+            )
+        self.umaren_odds = target_odds
+
+        data = self.db.scalars(
+            select(Umatan).filter(
+                Umatan.kaisai_nen == self.kaisai_nen,
+                Umatan.kaisai_tsukihi == self.kaisai_tsukihi,
+                Umatan.keibajo_code == self.keibajo_code,
+                Umatan.race_bango == self.race_bango,
+            )
+        ).one()
+        striped = data.odds_umatan.rstrip()
+        odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
+        target_odds = np.empty((len(odds_str), len(odds_str)))
+        for odd in odds_str:
+            target_odds[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
+                float_or_nan(odd[4:10]) * 0.1
+            )
+        self.umatan_odds = target_odds
+
+        data = self.db.scalars(
+            select(Wide).filter(
+                Wide.kaisai_nen == self.kaisai_nen,
+                Wide.kaisai_tsukihi == self.kaisai_tsukihi,
+                Wide.keibajo_code == self.keibajo_code,
+                Wide.race_bango == self.race_bango,
+            )
+        ).one()
+        striped = data.odds_wide.rstrip()
+        odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
+        target_odds_low = np.zeros((len(odds_str), len(odds_str)))
+        target_odds_up = np.zeros((len(odds_str), len(odds_str)))
+        for odd in odds_str:
+            target_odds_low[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
+                float_or_nan(odd[4:9]) * 0.1
+            )
+            target_odds_up[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
+                float_or_nan(odd[9:14]) * 0.1
+            )
+        self.wide_odds_low = target_odds_low
+        self.wide_odds_up = target_odds_up
+
+        data = self.db.scalars(
+            select(Sanrentan).filter(
+                Sanrentan.kaisai_nen == self.kaisai_nen,
+                Sanrentan.kaisai_tsukihi == self.kaisai_tsukihi,
+                Sanrentan.keibajo_code == self.keibajo_code,
+                Sanrentan.race_bango == self.race_bango,
+            )
+        ).one()
+        striped = data.odds_sanrentan.rstrip()
+        odds_str = [striped[i : i + 17] for i in range(0, len(striped), 17)]
+        target_odds = np.empty((len(odds_str), len(odds_str), len(odds_str)))
+        for odd in odds_str:
+            target_odds[
+                int(odd[0:2]) - 1, int(odd[2:4]) - 1, int(odd[4:6]) - 1
+            ] = (float_or_nan(odd[6:13]) * 0.1)
+        self.sanrentan_odds = target_odds
+
+        data = self.db.scalars(
+            select(Sanrenpuku).filter(
+                Sanrenpuku.kaisai_nen == self.kaisai_nen,
+                Sanrenpuku.kaisai_tsukihi == self.kaisai_tsukihi,
+                Sanrenpuku.keibajo_code == self.keibajo_code,
+                Sanrenpuku.race_bango == self.race_bango,
+            )
+        ).one()
+        striped = data.odds_sanrenpuku.rstrip()
+        odds_str = [striped[i : i + 15] for i in range(0, len(striped), 15)]
+        target_odds = np.zeros((len(odds_str), len(odds_str), len(odds_str)))
+        for odd in odds_str:
+            target_odds[
+                int(odd[0:2]) - 1, int(odd[2:4]) - 1, int(odd[4:6]) - 1
+            ] = (float_or_nan(odd[6:12]) * 0.1)
+        self.sanrenpuku_odds = target_odds
+
+    
+    def get_horse_data_from_db(self):
+        db = self.db
+        race = db.scalars(
+            select(Race).filter(
+                Race.kaisai_nen == self.kaisai_nen,
+                Race.kaisai_tsukihi == self.kaisai_tsukihi,
+                Race.keibajo_code == self.keibajo_code,
+                Race.race_bango == self.race_bango,
+            )
+        ).one()
+        race_df = shutsubahyo(race, db)
         result_row = pd.DataFrame(
-        [
             [
-                field_mapper(race.track_code),
-                condition_mapper(race),
-                grade_mapper(race.grade_code),
-                (int(race.kyori) - 1000.0) / 2600.0,
-                int(race.shusso_tosu) / 18.0,
-            ]
-        ],
-        columns=race_condition,
+                [
+                    field_mapper(race.track_code),
+                    condition_mapper(race),
+                    grade_mapper(race.grade_code),
+                    (int(race.kyori) - 1000.0) / 2600.0,
+                    int(race.shusso_tosu) / 18.0,
+                ]
+            ],
+            columns=race_condition,
         )
         result_df = race_df[["result"]].T.copy()
         result_df.columns = ["result" + str(i) for i in range(1, 19)]
         race_df.drop(columns="result", inplace=True)
         for i in range(0, 18):
-            result_horse_columns = [str(i) + column for column in race_df.columns]
+            result_horse_columns = [
+                str(i) + column for column in race_df.columns
+            ]
             horse_row = race_df.iloc[[i]].copy()
             horse_row.columns = result_horse_columns
             result_row = pd.concat([result_row, horse_row], axis=1)
         result_row = pd.concat([result_row, result_df], axis=1)
-        np_result_row=result_row.to_numpy()
-        result_tensor=torch.from_numpy(np_result_row).float()
+        np_result_row = result_row.to_numpy()
+        result_tensor = torch.from_numpy(np_result_row).float()
 
-        self.horse_data=result_tensor
-
-
+        self.horse_data = result_tensor
 
     async def get_recent_odds_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
             await Fetcher.go_recent_race_odds(
-                page,self.race_name_abbre
+                int(self.race_bango), page, self.race_name_abbre
             )
             odds_table = page.locator("#odds_list table")
-            shusso_tosu=await odds_table.locator("tbody tr").count()
-            tansho_odds=np.zeros(shusso_tosu)
-            fukusho_odds_low=np.zeros(shusso_tosu)
-            fukusho_odds_up=np.zeros(shusso_tosu)
+            shusso_tosu = await odds_table.locator("tbody tr").count()
+            tansho_odds = np.zeros(shusso_tosu)
+            fukusho_odds_low = np.zeros(shusso_tosu)
+            fukusho_odds_up = np.zeros(shusso_tosu)
             for tr in await odds_table.locator("tbody tr").all():
                 number = int(await tr.locator("td.num").inner_text())
-                tansho_value = float_or_nan(await tr.locator("td.odds_tan").inner_text())
-                fukusho_value_low = float_or_nan(await tr.locator("td.odds_fuku span.min").inner_text())
-                fukusho_value_up = float_or_nan(await tr.locator("td.odds_fuku span.max").inner_text())
-                tansho_odds[number-1]=tansho_value
-                fukusho_odds_low[number-1]=fukusho_value_low
-                fukusho_odds_up[number-1]=fukusho_value_up
-            
-            self.tansho_odds=tansho_odds
-            self.fukusho_odds_low=fukusho_odds_low
-            self.fukusho_odds_up=fukusho_odds_up
+                tansho_value = float_or_nan(
+                    await tr.locator("td.odds_tan").inner_text()
+                )
+                fukusho_value_low = float_or_nan(
+                    await tr.locator("td.odds_fuku span.min").inner_text()
+                )
+                fukusho_value_up = float_or_nan(
+                    await tr.locator("td.odds_fuku span.max").inner_text()
+                )
+                tansho_odds[number - 1] = tansho_value
+                fukusho_odds_low[number - 1] = fukusho_value_low
+                fukusho_odds_up[number - 1] = fukusho_value_up
+
+            self.tansho_odds = tansho_odds
+            self.fukusho_odds_low = fukusho_odds_low
+            self.fukusho_odds_up = fukusho_odds_up
 
             await page.get_by_role("link", name="馬連").click()
-            umaren_odds=await self.scraip_odds_two_horse(page,shusso_tosu)
-            self.umaren_odds=umaren_odds
+            umaren_odds = await self.scraip_odds_two_horse(page, shusso_tosu)
+            self.umaren_odds = umaren_odds
 
             await page.get_by_role("link", name="ワイド").click()
-            wide_odds_min=np.zeros((shusso_tosu,shusso_tosu))
-            wide_odds_max=np.zeros((shusso_tosu,shusso_tosu))
+            wide_odds_min = np.zeros((shusso_tosu, shusso_tosu))
+            wide_odds_max = np.zeros((shusso_tosu, shusso_tosu))
             odds_tables = page.locator("#odds_list ul")
             for li in odds_tables.locator("li").all():
                 for tr in li.locator("tbody tr").all():
-                    umaban_str = await tr.locator("td.num").inner_text().split("-")
-                    umaban=[int(umaban_str[0]),int(umaban_str[1])]
-                    wide_value_min=float_or_nan(await tr.locator("td.odds span.min").inner_text())
-                    wide_value_max=float_or_nan(await tr.locator("td.odds span.max").inner_text())
-                    wide_odds_min[umaban[0]-1,umaban[1]-1]=wide_value_min
-                    wide_odds_max[umaban[0]-1,umaban[1]-1]=wide_value_max
+                    umaban_str = (
+                        await tr.locator("td.num").inner_text().split("-")
+                    )
+                    umaban = [int(umaban_str[0]), int(umaban_str[1])]
+                    wide_value_min = float_or_nan(
+                        await tr.locator("td.odds span.min").inner_text()
+                    )
+                    wide_value_max = float_or_nan(
+                        await tr.locator("td.odds span.max").inner_text()
+                    )
+                    wide_odds_min[
+                        umaban[0] - 1, umaban[1] - 1
+                    ] = wide_value_min
+                    wide_odds_max[
+                        umaban[0] - 1, umaban[1] - 1
+                    ] = wide_value_max
 
-            self.wide_odds_low=wide_odds_min
-            self.wide_odds_up=wide_odds_max
-            
+            self.wide_odds_low = wide_odds_min
+            self.wide_odds_up = wide_odds_max
+
             await page.get_by_role("link", name="馬単").click()
-            umatan_odds=await self.scraip_odds_two_horse(page,shusso_tosu)
-            self.umatan_odds=umatan_odds
+            umatan_odds = await self.scraip_odds_two_horse(page, shusso_tosu)
+            self.umatan_odds = umatan_odds
 
             await page.get_by_role("link", name="三連単").click()
             odds_tables = page.locator("#odds_list")
-            sanrentan_odds=np.zeros((shusso_tosu,shusso_tosu,shusso_tosu))
+            sanrentan_odds = np.zeros((shusso_tosu, shusso_tosu, shusso_tosu))
             for ul in odds_table.locator("ul").all():
                 for li in ul.locator("li").all():
                     for tr in li.locator("tbody tr").all():
-                        umaban_str = await tr.locator("td.num").inner_text().split("-")
-                        umaban=[int(umaban_str[0]),int(umaban_str[1]),int(umaban_str[2])]
-                        sanrentan_value=float_or_nan(await tr.locator("td.odds").inner_text())
-                        sanrentan_odds[umaban[0]-1,umaban[1]-1,umaban[2]-1]=sanrentan_value
-            self.sanrentan_odds=sanrentan_odds
+                        umaban_str = (
+                            await tr.locator("td.num").inner_text().split("-")
+                        )
+                        umaban = [
+                            int(umaban_str[0]),
+                            int(umaban_str[1]),
+                            int(umaban_str[2]),
+                        ]
+                        sanrentan_value = float_or_nan(
+                            await tr.locator("td.odds").inner_text()
+                        )
+                        sanrentan_odds[
+                            umaban[0] - 1, umaban[1] - 1, umaban[2] - 1
+                        ] = sanrentan_value
+            self.sanrentan_odds = sanrentan_odds
 
             await page.get_by_role("link", name="三連複").click()
             odds_tables = page.locator("#odds_list ul")
-            sanrenpuku_odds=np.zeros((shusso_tosu,shusso_tosu,shusso_tosu))
+            sanrenpuku_odds = np.zeros((shusso_tosu, shusso_tosu, shusso_tosu))
             for li in odds_tables.locator("li").all():
                 for tr in li.locator("tbody tr").all():
-                    umaban_str = await tr.locator("td.num").inner_text().split("-")
-                    umaban=[int(umaban_str[0]),int(umaban_str[1]),int(umaban_str[2])]
-                    sanrenpuku_value=float_or_nan(await tr.locator("td.odds").inner_text())
-                    sanrenpuku_odds[umaban[0]-1,umaban[1]-1,umaban[2]-1]=sanrenpuku_value
-            self.sanrenpuku_odds=sanrenpuku_odds
-
+                    umaban_str = (
+                        await tr.locator("td.num").inner_text().split("-")
+                    )
+                    umaban = [
+                        int(umaban_str[0]),
+                        int(umaban_str[1]),
+                        int(umaban_str[2]),
+                    ]
+                    sanrenpuku_value = float_or_nan(
+                        await tr.locator("td.odds").inner_text()
+                    )
+                    sanrenpuku_odds[
+                        umaban[0] - 1, umaban[1] - 1, umaban[2] - 1
+                    ] = sanrenpuku_value
+            self.sanrenpuku_odds = sanrenpuku_odds
 
     async def get_horse_data_from_jra(self):
-         async with playwright_context() as (browser, context):
+        async with playwright_context() as (browser, context):
             page = await context.new_page()
             await page.goto("https://jra.jp/")
             async with page.expect_navigation():
                 await page.get_by_role("link", name="オッズ").click()
 
     @staticmethod
-    async def scraip_odds_two_horse(page,shusso_tosu):
-        umaren_odds=np.zeros((shusso_tosu,shusso_tosu))
+    async def scraip_odds_two_horse(page, shusso_tosu):
+        umaren_odds = np.zeros((shusso_tosu, shusso_tosu))
         odds_tables = page.locator("#odds_list ul")
         for li in odds_tables.locator("li").all():
             for tr in li.locator("tbody tr").all():
                 umaban_str = await tr.locator("td.num").inner_text().split("-")
-                umaban=[int(umaban_str[0]),int(umaban_str[1])]
-                umaren_value=float_or_nan(await tr.locator("td.odds").inner_text())
-                umaren_odds[umaban[0]-1,umaban[1]-1]=umaren_value
+                umaban = [int(umaban_str[0]), int(umaban_str[1])]
+                umaren_value = float_or_nan(
+                    await tr.locator("td.odds").inner_text()
+                )
+                umaren_odds[umaban[0] - 1, umaban[1] - 1] = umaren_value
 
         return umaren_odds
-    
+
     @staticmethod
-    async def go_recent_race_odds(self, page, race_name_abbre):
+    async def go_recent_race_odds(race_number: int, page, race_name_abbre):
         await page.goto("https://jra.jp/")
         async with page.expect_navigation():
             await page.get_by_role("link", name="オッズ").click()
         async with page.expect_navigation():
             await page.get_by_role("link", name=race_name_abbre).click()
         async with page.expect_navigation():
-            
+            await page.locator("body").locator("#contents").locator(
+                "#contentsBody"
+            ).locator("#race_select").locator("table").locator("tbody tr").nth(
+                race_number - 1
+            ).get_by_role(
+                "link"
+            ).click()
