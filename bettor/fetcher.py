@@ -21,7 +21,7 @@ from uma_predict.db.models import (
 
 # asyncioの入れ子を許す
 import nest_asyncio
-from uma_predict.df.alpha_df import shutsubahyo, race_condition
+from uma_predict.df.alpha_df import shutsubahyo, race_condition, hist_number
 from uma_predict.df.utils import field_mapper, condition_mapper, grade_mapper
 from db.database import SessionLocal
 import torch
@@ -397,7 +397,6 @@ class Fetcher:
             ] = (float_or_nan(odd[6:12]) * 0.1)
         self.sanrenpuku_odds = target_odds
 
-    
     def get_horse_data_from_db(self):
         db = self.db
         race = db.scalars(
@@ -443,6 +442,8 @@ class Fetcher:
             await Fetcher.go_recent_race_odds(
                 int(self.race_bango), page, self.race_name_abbre
             )
+            async with page.expect_navigation():
+                await page.get_by_role("link", name="人気順").click()
             odds_table = page.locator("#odds_list table")
             shusso_tosu = await odds_table.locator("tbody tr").count()
             tansho_odds = np.zeros(shusso_tosu)
@@ -544,12 +545,147 @@ class Fetcher:
                     ] = sanrenpuku_value
             self.sanrenpuku_odds = sanrenpuku_odds
 
+
+    #deprecated
     async def get_horse_data_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
-            await page.goto("https://jra.jp/")
-            async with page.expect_navigation():
-                await page.get_by_role("link", name="オッズ").click()
+            await Fetcher.go_recent_race_odds(
+                int(self.race_bango), page, self.race_name_abbre
+            )
+            race_title = page.locator(
+                "div.race_header div.left div.race_title"
+            )
+            race_grade = race_title.locator("h2 span.grade_icon.lg")
+            race_info = race_title.locator("div.type")
+            race_class = race_info.locator("div.cell.class").inner_text()
+            race_course = race_info.locator("div.cell.course")
+            kyori = race_course.inner_text()
+            field = race_course.locator("span.detail").inner_text()
+
+            odds_table = page.locator("#odds_list table")
+            shusso_tosu = await odds_table.locator("tbody tr").count()
+            shutsubahyo = np.zeros(shusso_tosu, shusso_tosu)
+            for tr in await odds_table.locator("tbody tr").all():
+                number = int(await tr.locator("td.num").inner_text())
+
+                futan_juryo = float_or_nan(
+                    await tr.locator("td.weight").inner_text()
+                )
+                horse_name = await tr.locator("td.horse").inner_text()
+                async with page.expect_navigation():
+                    await tr.locator("td.horse").get_by_role("link").click()
+                horse_page = page.locator("div.main")
+                horse_profile = horse_page.locator("div.data")
+                seibetu = (
+                    await horse_profile.locator("li.data_col2")
+                    .nth(0)
+                    .locator("dl dd")
+                    .inner_text()
+                )
+                seinengappi = (
+                    await horse_profile.locator("li.data_col2")
+                    .nth(2)
+                    .locator("dl dd")
+                    .inner_text()
+                )
+
+                hist = await horse_page.locator(
+                    "ul.unit_list.mt15 tbody tr"
+                ).all()
+                hist_list = []
+                hist_count = 0
+                for column in hist:
+                    race_link = (
+                        await column.locator("td").nth(2).get_by_role("link")
+                    )
+                    chakujun = float_or_nan(
+                        await column.locator("td").nth(7).inner_text()
+                    )
+                    if race_link and chakujun:
+                        date = await column.locator("td.date").inner_text()
+                        place = await column.locator("td").nth(1).inner_text()
+                        kyori_and_field = (
+                            await column.locator("td").nth(3).inner_text()
+                        )
+                        field_condition = (
+                            await column.locator("td").nth(4).inner_text()
+                        )
+                        ninkijun = (
+                            await column.locator("td").nth(6).inner_text()
+                        )
+                        kinryo = await column.locator("td").nth(9).inner_text()
+                        bataiju = (
+                            await column.locator("td").nth(10).inner_text()
+                        )
+                        soha_time = (
+                            await column.locator("td").nth(11).inner_text()
+                        )
+                        async with page.expect_navigation():
+                            race_link.click()
+                        result = page.locator(
+                            "div#contents div#race_result table.basic.narrow-xy.striped"
+                        )
+                        race_title = result.locator(
+                            "caption div.race_header div.left div.race_title"
+                        )
+                        race_grade = race_title.locator(
+                            "h2 span.grade_icon.lg"
+                        )
+                        race_info = race_title.locator("div.type")
+                        race_class = race_info.locator(
+                            "div.cell.class"
+                        ).inner_text()
+                        result_table = result.locator("tbody tr").all()
+                        time_list = []
+                        last_3f_list = []
+                        first_horse_time = 0
+                        target_horse_umaban = 0
+                        for tr in result_table:
+                            past_chakujun = float_or_nan(
+                                await tr.locator("td").nth(7).inner_text()
+                            )
+                            if past_chakujun:
+                                time_list.append(
+                                    await tr.locator("td").nth(10).inner_text()
+                                )
+                                last_3f_list.append(
+                                    await tr.locator("td").nth(11).inner_text()
+                                )
+                            if past_chakujun == 1.0:
+                                first_horse_time = (
+                                    await tr.locator("td").nth(10).inner_text()
+                                )
+                            if past_chakujun == chakujun:
+                                target_horse_time = (
+                                    await tr.locator("td.time")inner_text()
+                                )
+                                target_horse_last_3f = (
+                                    await tr.locator("td.f_time").nth(11).inner_text()
+                                )
+                                corner_3= (
+                                    await tr.locator("td.corner").get_by_title("3コーナー通過順位").inner_text()
+                                )
+                                corner_4= (
+                                    await tr.locator("td.corner").get_by_title("4コーナー通過順位").inner_text()
+                                )
+                                target_horse_umaban=int(
+                                    await tr.locator("td.num").inner_text()
+                                )
+                                tansho_ninki=(
+                                    await tr.locator("td.pop").inner_text()
+                                )
+                                async with page.expect_navigation():
+                                    await result.locator("caption div.race_header div.right").get_by_role("link",name="オッズ").click()
+                                tansho_odds=float_or_nan(await page.locator("div#contents div#contentsBody div#odds_list tbody tr").nth(target_horse_umaban-1).locator("td.odds_tan").inner_text())
+                                
+                    else:
+                        continue
+                    if hist_count == hist_number:
+                        break
+    
+    async def get_horse_data_from_netkeiba(self):
+
 
     @staticmethod
     async def scraip_odds_two_horse(page, shusso_tosu):
