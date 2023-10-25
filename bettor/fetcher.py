@@ -21,10 +21,23 @@ from uma_predict.db.models import (
 
 # asyncioの入れ子を許す
 import nest_asyncio
-from uma_predict.df.alpha_df import shutsubahyo, race_condition, hist_number
+from uma_predict.df.alpha_df import (
+    shutsubahyo,
+    race_condition,
+    hist_number,
+    current_horse_column_master,
+    horse_hist_column_master,
+)
 from uma_predict.df.utils import field_mapper, condition_mapper, grade_mapper
 from db.database import SessionLocal
 import torch
+
+race_df_columns = []
+race_df_columns += current_horse_column_master
+
+for i in range(1, hist_number + 1):
+    hist_column = [column + str(i) for column in horse_hist_column_master]
+    race_df_columns += hist_column
 
 nest_asyncio.apply()
 
@@ -62,192 +75,11 @@ async def open_page(headless=True):
         yield page
 
 
-async def select_1st_race(page, place: str):  # placeは"1回中山5日"など
-    await page.goto("https://jra.jp/")
-    async with page.expect_navigation():
-        await page.get_by_role("link", name="レース結果").click()
-    async with page.expect_navigation():
-        await page.get_by_role("link", name=place).click()
-    async with page.expect_navigation():
-        await page.get_by_role("link", name="1レースオッズ", exact=True).click()
-
-
-async def get_race_count(page):
-    return await page.locator("ul.race-num").first.locator("li").count()
-
-
-async def select_race(page, race):
-    async with page.expect_navigation():
-        await page.get_by_role("link", name=f"{race}レース").first.click()
-
-
 def float_or_nan(str_value):
     try:
         return float(str_value)
     except:
         return np.nan
-
-
-# 単勝オッズ取得
-async def get_odds_tansho(page, place, race):
-    number_list = []
-    odds_list = []
-    nagashi_list = []
-    umatan_table = await get_odds_umatan(page, place, race)
-
-    async with page.expect_navigation():
-        await page.get_by_role("link", name="単勝・複勝").click()
-    odds_table = page.locator("#odds_list table")
-    for tr in await odds_table.locator("tbody tr").all():
-        number = int(await tr.locator("td.num").inner_text())
-        odds = float_or_nan(await tr.locator("td.odds_tan").inner_text())
-        nagashi = umatan_table[umatan_table["number1"] == number]["odds"]
-        print(f"{race}レース")
-        print(nagashi)
-        nagashi_value = combine_odds(nagashi)
-        number_list.append(number)
-        odds_list.append(odds)
-        nagashi_list.append(nagashi_value)
-    print(nagashi_list)
-    table = pd.DataFrame(
-        {"number": number_list, "odds": odds_list, "nagashi": nagashi_list}
-    )
-    table["place"] = place
-    table["race"] = race
-
-    # 列の並び替え
-    columns = ["place", "race", "number", "odds", "nagashi"]
-    table = table[columns]
-
-    return table
-
-
-# 馬連オッズ取得
-async def get_odds_umaren(page, place, race):
-    number1_list = []
-    number2_list = []
-    odds_list = []
-    nagashi_list = []
-    umatan_table = await get_odds_umatan(page, place, race)
-
-    async with page.expect_navigation():
-        await page.get_by_role("link", name="馬連").click()
-    odds_tables = page.locator("#odds_list table.umaren")
-    for odds_table in await odds_tables.all():
-        number1 = int(await odds_table.locator("caption").inner_text())
-        for tr in await odds_table.locator("tbody tr").all():
-            number2 = int(await tr.locator("th").inner_text())
-            odds = float_or_nan(await tr.locator("td").inner_text())
-            number1_list.append(number1)
-            number2_list.append(number2)
-            odds_list.append(odds)
-            nagashi = umatan_table.query(
-                "(number1==@number1 & number2==@number2)|(number1==@number2 & number2==@number1)"
-            )["odds"]
-            nagashi_value = combine_odds(nagashi)
-            nagashi_list.append(nagashi_value)
-
-    table = pd.DataFrame(
-        {
-            "number1": number1_list,
-            "number2": number2_list,
-            "odds": odds_list,
-            "nagashi": nagashi_list,
-        }
-    )
-    table["place"] = place
-    table["race"] = race
-
-    # 列の並び替え
-    columns = ["place", "race", "number1", "number2", "odds", "nagashi"]
-    table = table[columns]
-
-    return table
-
-
-# 馬単オッズ取得
-async def get_odds_umatan(page, place, race):
-    number1_list = []
-    number2_list = []
-    odds_list = []
-
-    async with page.expect_navigation():
-        await page.get_by_role("link", name="馬単").click()
-    odds_tables = page.locator("#odds_list table.umatan")
-    for odds_table in await odds_tables.all():
-        number1 = int(await odds_table.locator("caption").inner_text())
-        for tr in await odds_table.locator("tbody tr").all():
-            number2 = int(await tr.locator("th").inner_text())
-            odds = float_or_nan(await tr.locator("td").inner_text())
-            number1_list.append(number1)
-            number2_list.append(number2)
-            odds_list.append(odds)
-
-    table = pd.DataFrame(
-        {
-            "number1": number1_list,
-            "number2": number2_list,
-            "odds": odds_list,
-        }
-    )
-    table["place"] = place
-    table["race"] = race
-
-    # 列の並び替え
-    columns = ["place", "race", "number1", "number2", "odds"]
-    table = table[columns]
-
-    return table
-
-
-# 開催のオッズを取得する
-async def get_odds(place):
-    odds_tansho_list = []
-    odds_umaren_list = []
-    odds_umatan_list = []
-    async with playwright_context() as (browser, context):
-        page = await context.new_page()
-        await select_1st_race(page, place)
-
-        race_count = await get_race_count(page)
-        for race in range(1, race_count + 1):
-            await select_race(page, race)
-            odds_tansho = await get_odds_tansho(page, place, race)
-            odds_umaren = await get_odds_umaren(page, place, race)
-            odds_umatan = await get_odds_umatan(page, place, race)
-            odds_tansho_list.append(odds_tansho)
-            odds_umaren_list.append(odds_umaren)
-            odds_umatan_list.append(odds_umatan)
-    odds_tansho = pd.concat(odds_tansho_list, ignore_index=True)
-    odds_umaren = pd.concat(odds_umaren_list, ignore_index=True)
-    odds_umatan = pd.concat(odds_umatan_list, ignore_index=True)
-    return odds_tansho, odds_umaren, odds_umatan
-
-
-# オッズを取得して保存
-def get_odds_and_save_csv(place, save_dir, csv_base, version):
-    if not isinstance(save_dir, Path):
-        save_dir = Path(save_dir)
-    if not save_dir.exists():
-        save_dir.mkdir(parents=True)
-    tansho_path = save_dir / f"{csv_base}_tansho_{version}.csv"
-    umaren_path = save_dir / f"{csv_base}_umaren_{version}.csv"
-    umatan_path = save_dir / f"{csv_base}_umatan_{version}.csv"
-    if tansho_path.exists() or umaren_path.exists():
-        print("Already exists.")
-        return
-
-    try:
-        odds_tansho, odds_umaren, odds_umatan = asyncio.run(get_odds(place))
-        odds_tansho.to_csv(tansho_path, index=False)
-        odds_umaren.to_csv(umaren_path, index=False)
-        odds_umatan.to_csv(umatan_path, index=False)
-    except:
-        traceback.print_exc()
-        print("Failed to get odds.")
-
-
-get_odds_and_save_csv("3回東京3日", "odds_csv", "20230430_tokyo_3", "0930")
 
 
 class Fetcher:
@@ -256,14 +88,14 @@ class Fetcher:
         kaisai_nen: str,
         kaisai_tsukihi: str,
         keibajo_code: str,
-        race_bago: str,
-        race_name_abbre: str,
+        race_bango: str,
+        race_name_abbre: str|None = None,
         db=SessionLocal(),
     ) -> None:
         self.kaisai_nen = kaisai_nen
         self.kaisai_tsukihi = kaisai_tsukihi
         self.keibajo_code = keibajo_code
-        self.race_bango = race_bago
+        self.race_bango = race_bango
         self.race_name_abbre = race_name_abbre  # 1回中山5日など
         self.tansho_odds = None
         self.fukusho_odds_low = None
@@ -276,6 +108,7 @@ class Fetcher:
         self.sanrentan_odds = None
         self.horse_data = None
         self.db = db
+
 
     def get_odds_from_db(self):
         data = self.db.scalars(
@@ -546,26 +379,44 @@ class Fetcher:
             self.sanrenpuku_odds = sanrenpuku_odds
 
 
-    #deprecated
     async def get_horse_data_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
             await Fetcher.go_recent_race_odds(
                 int(self.race_bango), page, self.race_name_abbre
             )
+            async with page.expect_navigation():
+                await page.get_by_role("link", name="人気順").click()
             race_title = page.locator(
                 "div.race_header div.left div.race_title"
             )
-            race_grade = race_title.locator("h2 span.grade_icon.lg")
+            race_grade_raw = race_title.locator("h2 span.grade_icon.lg")
+            grade=(0 
+            if race_grade_raw is None 
+            else 6 
+            if race_grade_raw.get_attribute("alt")=="GⅠ" 
+            else 5  
+            if race_grade_raw.get_attribute("alt")=="GⅡ"
+            else 4 
+            if race_grade_raw.get_attribute("alt")=="GⅢ"
+            else 3
+            if race_grade_raw.get_attribute("alt")=="リステッド"
+            else 0 )
+
+
+
+
             race_info = race_title.locator("div.type")
             race_class = race_info.locator("div.cell.class").inner_text()
             race_course = race_info.locator("div.cell.course")
             kyori = race_course.inner_text()
             field = race_course.locator("span.detail").inner_text()
-
+            
             odds_table = page.locator("#odds_list table")
             shusso_tosu = await odds_table.locator("tbody tr").count()
-            shutsubahyo = np.zeros(shusso_tosu, shusso_tosu)
+            race_df = pd.DataFrame(
+                0.0, index=list(range(1, 19)), columns=race_df_columns
+            )
             for tr in await odds_table.locator("tbody tr").all():
                 number = int(await tr.locator("td.num").inner_text())
 
@@ -589,6 +440,15 @@ class Fetcher:
                     .locator("dl dd")
                     .inner_text()
                 )
+                current_horse_dict={
+                    "barei": ,
+                    "seibetu": futan_juryo,
+                    "bataiju": horse_name,
+                    "blinker_shiyo_kubun": seibetu,
+                    "futan_juryo": seinengappi,
+                    "tansho_odds":
+                    "tansho_ninkijun":
+                }
 
                 hist = await horse_page.locator(
                     "ul.unit_list.mt15 tbody tr"
@@ -657,35 +517,68 @@ class Fetcher:
                                     await tr.locator("td").nth(10).inner_text()
                                 )
                             if past_chakujun == chakujun:
-                                target_horse_time = (
-                                    await tr.locator("td.time")inner_text()
-                                )
+                                target_horse_time = await tr.locator(
+                                    "td.time"
+                                ).inner_text()
                                 target_horse_last_3f = (
-                                    await tr.locator("td.f_time").nth(11).inner_text()
+                                    await tr.locator("td.f_time")
+                                    .nth(11)
+                                    .inner_text()
                                 )
-                                corner_3= (
-                                    await tr.locator("td.corner").get_by_title("3コーナー通過順位").inner_text()
+                                corner_3 = (
+                                    await tr.locator("td.corner")
+                                    .get_by_title("3コーナー通過順位")
+                                    .inner_text()
                                 )
-                                corner_4= (
-                                    await tr.locator("td.corner").get_by_title("4コーナー通過順位").inner_text()
+                                corner_4 = (
+                                    await tr.locator("td.corner")
+                                    .get_by_title("4コーナー通過順位")
+                                    .inner_text()
                                 )
-                                target_horse_umaban=int(
+                                target_horse_umaban = int(
                                     await tr.locator("td.num").inner_text()
                                 )
-                                tansho_ninki=(
-                                    await tr.locator("td.pop").inner_text()
-                                )
+                                tansho_ninki = await tr.locator(
+                                    "td.pop"
+                                ).inner_text()
                                 async with page.expect_navigation():
-                                    await result.locator("caption div.race_header div.right").get_by_role("link",name="オッズ").click()
-                                tansho_odds=float_or_nan(await page.locator("div#contents div#contentsBody div#odds_list tbody tr").nth(target_horse_umaban-1).locator("td.odds_tan").inner_text())
-                                
+                                    await result.locator(
+                                        "caption div.race_header div.right"
+                                    ).get_by_role("link", name="オッズ").click()
+                                tansho_odds = float_or_nan(
+                                    await page.locator(
+                                        "div#contents div#contentsBody div#odds_list tbody tr"
+                                    )
+                                    .nth(target_horse_umaban - 1)
+                                    .locator("td.odds_tan")
+                                    .inner_text()
+                                )
+
+                        hist_dict={
+                            "barei":,
+                            "bataiju":,
+                            "blinker_shiyo_kubun": ,
+                            "futan_juryo": ,
+                            "condition": ,
+                            "field": ,
+                            "grade_code":,
+                            "kyori": ,
+                            "soha_time":,
+                            "time_sa": ,
+                            "soha_time_relative": ,
+                            "kohan_3f": ,
+                            "kohan_3f_relative": ,
+                            "nyusen_juni":,
+                            "corner_3":,
+                            "corner_4":,
+                            "tansho_odds":,
+                            "tansho_ninkijun":,
+                        }
+
                     else:
                         continue
                     if hist_count == hist_number:
                         break
-    
-    async def get_horse_data_from_netkeiba(self):
-
 
     @staticmethod
     async def scraip_odds_two_horse(page, shusso_tosu):

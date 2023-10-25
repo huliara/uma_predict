@@ -1,10 +1,11 @@
 import numpy as np
+from fetcher import Fetcher
+
 
 class Bettor:
-    def __init__(self, rank_prob: list, race_key: int) -> None:
+    def __init__(self, rank_prob: list) -> None:
         self.rank_prob = rank_prob
         shusso_tosu = len(rank_prob)
-        self.race_key = race_key
         self.tansho_prob = None
         self.fukusho_prob = None
         self.wide_prob = np.zeros((shusso_tosu, shusso_tosu))
@@ -67,20 +68,22 @@ class Bettor:
         self.umaren_prob = np.triu(self.umatan_prob + self.umatan_prob.T, k=1)
         self.wide_prob = self.sanrenpuku_prob.sum(axis=0)
 
-    def set_EXP(self, odds):
-        self.tansho_EXP = self.tansho_prob * odds["tansho"]
-        self.fukusho_EXP = self.fukusho_prob * odds["fukusho"]
-        self.wide_EXP = self.wide_prob * odds["wide"]
-        self.umaren_EXP = self.umaren_prob * odds["umaren"]
-        self.umatan_EXP = self.umatan_prob * odds["umatan"]
-        self.sanrenpuku_EXP = self.sanrenpuku_prob * odds["sanrenpuku"]
-        self.sanrentan_EXP = self.sanrentan_prob * odds["sanrentan"]
+    def set_EXP(self, fetcher: Fetcher):
+        self.tansho_EXP = self.tansho_prob * fetcher.tansho_odds
+        self.fukusho_EXP_low = self.fukusho_prob * fetcher.fukusho_odds_low
+        self.fukusho_EXP_up = self.fukusho_prob * fetcher.fukusho_odds_up
+        self.wide_EXP_low = self.wide_prob * fetcher.wide_odds_low
+        self.wide_EXP_up = self.wide_prob * fetcher.wide_odds_up
+        self.umaren_EXP = self.umaren_prob * fetcher.umaren_odds
+        self.umatan_EXP = self.umatan_prob * fetcher.umatan_odds
+        self.sanrenpuku_EXP = self.sanrenpuku_prob * fetcher.sanrenpuku_odds
+        self.sanrentan_EXP = self.sanrentan_prob * fetcher.sanrentan_odds
 
     def update_probs(self, new_rank_prob: list):
         self.rank_prob = new_rank_prob
         self.setup_probs()
 
-    def disp_exp(self):
+    def disp_EXP(self):
         print(f"tansho: {self.tansho_EXP}")
         print(f"fukusho: {self.fukusho_EXP}")
         print(f"wide: {self.wide_EXP}")
