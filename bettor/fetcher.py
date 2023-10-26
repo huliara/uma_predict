@@ -21,7 +21,7 @@ from uma_predict.db.models import (
 
 # asyncioの入れ子を許す
 import nest_asyncio
-from uma_predict.df.alpha_df import (
+from uma_predict.df.alpha_hyo import (
     shutsubahyo,
     race_condition,
     hist_number,
@@ -29,7 +29,7 @@ from uma_predict.df.alpha_df import (
     horse_hist_column_master,
 )
 from uma_predict.df.utils import field_mapper, condition_mapper, grade_mapper
-from db.database import SessionLocal
+from uma_predict.db.database import SessionLocal
 import torch
 
 race_df_columns = []
@@ -89,14 +89,15 @@ class Fetcher:
         kaisai_tsukihi: str,
         keibajo_code: str,
         race_bango: str,
-        race_name_abbre: str|None = None,
+        race_name_abbre: str | None = None,
         db=SessionLocal(),
     ) -> None:
         self.kaisai_nen = kaisai_nen
         self.kaisai_tsukihi = kaisai_tsukihi
         self.keibajo_code = keibajo_code
         self.race_bango = race_bango
-        self.race_name_abbre = race_name_abbre  # 1回中山5日など
+        self.race_name_abbre = race_name_abbre   # 1回中山5日など
+        self.toroku_tosu = None
         self.tansho_odds = None
         self.fukusho_odds_low = None
         self.fukusho_odds_up = None
@@ -109,7 +110,6 @@ class Fetcher:
         self.horse_data = None
         self.db = db
 
-
     def get_odds_from_db(self):
         data = self.db.scalars(
             select(Tansho).filter(
@@ -119,17 +119,18 @@ class Fetcher:
                 Tansho.race_bango == self.race_bango,
             )
         ).one()
+        self.toroku_tosu = int(data.toroku_tosu)
         tansho = data.odds_tansho.rstrip()
         tansho_str = [tansho[i : i + 8] for i in range(0, len(tansho), 8)]
-        tansho_odds = np.empty(len(tansho_str))
+        tansho_odds = np.zeros(self.toroku_tosu)
         for tansho in tansho_str:
             tansho_odds[int(tansho[0:2]) - 1] = float_or_nan(tansho[2:6]) * 0.1
         self.tansho_odds = tansho_odds
 
         fukusho = data.odds_fukusho.rstrip()
         fukusho_str = [fukusho[i : i + 12] for i in range(0, len(fukusho), 12)]
-        fukusho_odds_low = np.empty(len(fukusho_str))
-        fukusho_odds_up = np.empty(len(fukusho_str))
+        fukusho_odds_low = np.zeros(self.toroku_tosu)
+        fukusho_odds_up = np.zeros(self.toroku_tosu)
         for fukusho in fukusho_str:
             fukusho_odds_low[int(fukusho[0:2]) - 1] = (
                 float_or_nan(fukusho[2:6]) * 0.1
@@ -148,9 +149,9 @@ class Fetcher:
                 Umaren.race_bango == self.race_bango,
             )
         ).one()
-        striped = data.odds_umaren.rstrip()
+        striped = data.odds_umaren.replace(" ", "")
         odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
-        target_odds = np.zeros((len(odds_str), len(odds_str)))
+        target_odds = np.zeros((self.toroku_tosu,self.toroku_tosu))
         for odd in odds_str:
             target_odds[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
                 float_or_nan(odd[4:10]) * 0.1
@@ -165,9 +166,9 @@ class Fetcher:
                 Umatan.race_bango == self.race_bango,
             )
         ).one()
-        striped = data.odds_umatan.rstrip()
+        striped = data.odds_umatan.replace(" ", "")
         odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
-        target_odds = np.empty((len(odds_str), len(odds_str)))
+        target_odds = np.zeros((self.toroku_tosu,self.toroku_tosu))
         for odd in odds_str:
             target_odds[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
                 float_or_nan(odd[4:10]) * 0.1
@@ -182,10 +183,10 @@ class Fetcher:
                 Wide.race_bango == self.race_bango,
             )
         ).one()
-        striped = data.odds_wide.rstrip()
-        odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
-        target_odds_low = np.zeros((len(odds_str), len(odds_str)))
-        target_odds_up = np.zeros((len(odds_str), len(odds_str)))
+        striped = data.odds_wide.replace(" ", "")
+        odds_str = [striped[i : i + 17] for i in range(0, len(striped), 17)]
+        target_odds_low = np.zeros((self.toroku_tosu, self.toroku_tosu))
+        target_odds_up = np.zeros((self.toroku_tosu, self.toroku_tosu))
         for odd in odds_str:
             target_odds_low[int(odd[0:2]) - 1, int(odd[2:4]) - 1] = (
                 float_or_nan(odd[4:9]) * 0.1
@@ -204,9 +205,9 @@ class Fetcher:
                 Sanrentan.race_bango == self.race_bango,
             )
         ).one()
-        striped = data.odds_sanrentan.rstrip()
+        striped = data.odds_sanrentan.replace(" ", "")
         odds_str = [striped[i : i + 17] for i in range(0, len(striped), 17)]
-        target_odds = np.empty((len(odds_str), len(odds_str), len(odds_str)))
+        target_odds = np.zeros((self.toroku_tosu, self.toroku_tosu, self.toroku_tosu))
         for odd in odds_str:
             target_odds[
                 int(odd[0:2]) - 1, int(odd[2:4]) - 1, int(odd[4:6]) - 1
@@ -221,9 +222,9 @@ class Fetcher:
                 Sanrenpuku.race_bango == self.race_bango,
             )
         ).one()
-        striped = data.odds_sanrenpuku.rstrip()
+        striped = data.odds_sanrenpuku.replace(" ", "")
         odds_str = [striped[i : i + 15] for i in range(0, len(striped), 15)]
-        target_odds = np.zeros((len(odds_str), len(odds_str), len(odds_str)))
+        target_odds = np.zeros((self.toroku_tosu, self.toroku_tosu, self.toroku_tosu))
         for odd in odds_str:
             target_odds[
                 int(odd[0:2]) - 1, int(odd[2:4]) - 1, int(odd[4:6]) - 1
@@ -261,9 +262,12 @@ class Fetcher:
                 str(i) + column for column in race_df.columns
             ]
             horse_row = race_df.iloc[[i]].copy()
+            horse_row.index=[0]
             horse_row.columns = result_horse_columns
             result_row = pd.concat([result_row, horse_row], axis=1)
+        result_df.index=[0]
         result_row = pd.concat([result_row, result_df], axis=1)
+        print(result_row)
         np_result_row = result_row.to_numpy()
         result_tensor = torch.from_numpy(np_result_row).float()
 
@@ -378,7 +382,6 @@ class Fetcher:
                     ] = sanrenpuku_value
             self.sanrenpuku_odds = sanrenpuku_odds
 
-
     async def get_horse_data_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
@@ -391,27 +394,26 @@ class Fetcher:
                 "div.race_header div.left div.race_title"
             )
             race_grade_raw = race_title.locator("h2 span.grade_icon.lg")
-            grade=(0 
-            if race_grade_raw is None 
-            else 6 
-            if race_grade_raw.get_attribute("alt")=="GⅠ" 
-            else 5  
-            if race_grade_raw.get_attribute("alt")=="GⅡ"
-            else 4 
-            if race_grade_raw.get_attribute("alt")=="GⅢ"
-            else 3
-            if race_grade_raw.get_attribute("alt")=="リステッド"
-            else 0 )
-
-
-
+            grade = (
+                0
+                if race_grade_raw is None
+                else 6
+                if race_grade_raw.get_attribute("alt") == "GⅠ"
+                else 5
+                if race_grade_raw.get_attribute("alt") == "GⅡ"
+                else 4
+                if race_grade_raw.get_attribute("alt") == "GⅢ"
+                else 3
+                if race_grade_raw.get_attribute("alt") == "リステッド"
+                else 0
+            )
 
             race_info = race_title.locator("div.type")
             race_class = race_info.locator("div.cell.class").inner_text()
             race_course = race_info.locator("div.cell.course")
             kyori = race_course.inner_text()
             field = race_course.locator("span.detail").inner_text()
-            
+
             odds_table = page.locator("#odds_list table")
             shusso_tosu = await odds_table.locator("tbody tr").count()
             race_df = pd.DataFrame(
@@ -440,14 +442,14 @@ class Fetcher:
                     .locator("dl dd")
                     .inner_text()
                 )
-                current_horse_dict={
-                    "barei": ,
+                current_horse_dict = {
+                    "barei": None,
                     "seibetu": futan_juryo,
                     "bataiju": horse_name,
                     "blinker_shiyo_kubun": seibetu,
                     "futan_juryo": seinengappi,
-                    "tansho_odds":
-                    "tansho_ninkijun":
+                    "tansho_odds": None,
+                    "tansho_ninkijun": None,
                 }
 
                 hist = await horse_page.locator(
@@ -554,25 +556,25 @@ class Fetcher:
                                     .inner_text()
                                 )
 
-                        hist_dict={
-                            "barei":,
-                            "bataiju":,
-                            "blinker_shiyo_kubun": ,
-                            "futan_juryo": ,
-                            "condition": ,
-                            "field": ,
-                            "grade_code":,
-                            "kyori": ,
-                            "soha_time":,
-                            "time_sa": ,
-                            "soha_time_relative": ,
-                            "kohan_3f": ,
-                            "kohan_3f_relative": ,
-                            "nyusen_juni":,
-                            "corner_3":,
-                            "corner_4":,
-                            "tansho_odds":,
-                            "tansho_ninkijun":,
+                        hist_dict = {
+                            "barei": None,
+                            "bataiju": None,
+                            "blinker_shiyo_kubun": None,
+                            "futan_juryo": None,
+                            "condition": None,
+                            "field": None,
+                            "grade_code": None,
+                            "kyori": None,
+                            "soha_time": None,
+                            "time_sa": None,
+                            "soha_time_relative": None,
+                            "kohan_3f": None,
+                            "kohan_3f_relative": None,
+                            "nyusen_juni": None,
+                            "corner_3": None,
+                            "corner_4": None,
+                            "tansho_odds": None,
+                            "tansho_ninkijun": None,
                         }
 
                     else:

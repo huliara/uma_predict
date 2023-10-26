@@ -5,17 +5,18 @@ from fetcher import Fetcher
 from uma_predict.bettor.bettor import Bettor
 import os
 import datetime
-
+import polars as pl
+import torch.nn.functional as F
 target_race_key = 202106030811
 shusso_tosu = 18
 
-
-def expected_value(prob_mat: np.array, odds: np.array):
-    return (prob_mat * odds).sum()
-
+train_data=pl.read_parquet("df\data9\\2016-2021-5-10.parquet")
+column_len=train_data.shape[1]-18
 
 model = HorsePredictor.load_from_checkpoint(
-    "uma_predict/lightning_logs/version_74/checkpoints/epoch=29-step=4290.ckpt"
+    "lightning_logs/version_74/checkpoints/epoch=29-step=4290.ckpt",
+    input_size=column_len,
+    output_size=18,
 )
 model.eval()
 fetcher = Fetcher(
@@ -26,13 +27,12 @@ fetcher = Fetcher(
 )
 fetcher.get_horse_data_from_db()
 fetcher.get_odds_from_db()
-y = model(fetcher.horse_data).detach().numpy().copy()
+y = F.softmax(model(fetcher.horse_data[:,:-18])[:,:fetcher.toroku_tosu]).detach().numpy().copy()[0]
 bettor = Bettor(rank_prob=y)
 bettor.setup_probs()
 bettor.set_EXP(fetcher)
 
-bettor.disp_EXP()
-bettor.disp_high_EXP()
+bettor.disp_high_EXP(threshold=10.)
 
 """
 dir_path = f"{str(target_race_key)})/{datetime.datetime.now().strftime('%Y-%m-%d;%H:%M')}"

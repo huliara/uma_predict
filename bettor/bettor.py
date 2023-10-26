@@ -1,6 +1,8 @@
 import numpy as np
 from fetcher import Fetcher
 
+np.set_printoptions(linewidth=1400)
+
 
 class Bettor:
     def __init__(self, rank_prob: list) -> None:
@@ -27,9 +29,10 @@ class Bettor:
 
     def setup_probs(self):
         third_rank_prob = Bettor.prob_third_rank(self.rank_prob)
-        self.tansho_prob = third_rank_prob[0, :]
-        self.fukusho_prob = third_rank_prob.sum(axis=0)
+        self.tansho_prob = third_rank_prob[0, :].T[0]
+        self.fukusho_prob = third_rank_prob.sum(axis=0).T[0]
         shusso_tosu = len(self.rank_prob)
+
         for i in range(shusso_tosu):
             for j in range(shusso_tosu):
                 for k in range(shusso_tosu):
@@ -46,38 +49,48 @@ class Bettor:
                             )
                         )
 
-        pre_sanrenpuku = (
-            self.sanrentan_prob
-            + self.sanrentan_prob.transpose(0, 2, 1)
-            + self.sanrentan_prob.transpose(1, 0, 2)
-            + self.sanrentan_prob.transpose(1, 2, 0)
-            + self.sanrentan_prob.transpose(2, 0, 1)
-            + self.sanrentan_prob.transpose(2, 1, 0)
-        )
-
-        pre_sanrenpuku = np.triu(pre_sanrenpuku, k=1)
-        pre_sanrenpuku = np.rot90(pre_sanrenpuku, k=1, axes=(1, 2))
-        pre_sanrenpuku = np.triu(pre_sanrenpuku, k=1)
-        pre_sanrenpuku = np.rot90(pre_sanrenpuku, k=1, axes=(1, 0))
-        pre_sanrenpuku = np.triu(pre_sanrenpuku, k=1)
-        self.sanrenpuku_prob = np.rot90(
-            np.rot90(pre_sanrenpuku, k=1, axes=(0, 1)), k=1, axes=(2, 1)
-        )
+        for i in range(shusso_tosu):
+            for j in range(i + 1, shusso_tosu):
+                for k in range(j + 1, shusso_tosu):
+                    self.sanrenpuku_prob[i, j, k] = (
+                        self.sanrentan_prob[i, j, k]
+                        + self.sanrentan_prob[i, k, j]
+                        + self.sanrentan_prob[j, i, k]
+                        + self.sanrentan_prob[j, k, i]
+                        + self.sanrentan_prob[k, i, j]
+                        + self.sanrentan_prob[k, j, i]
+                    )
 
         self.umatan_prob = self.sanrentan_prob.sum(axis=2)
         self.umaren_prob = np.triu(self.umatan_prob + self.umatan_prob.T, k=1)
-        self.wide_prob = self.sanrenpuku_prob.sum(axis=0)
+        self.wide_prob = (
+            self.sanrenpuku_prob.sum(axis=1)
+            + self.sanrenpuku_prob.sum(axis=2)
+            + self.sanrenpuku_prob.sum(axis=0)
+        )
+        
 
     def set_EXP(self, fetcher: Fetcher):
         self.tansho_EXP = self.tansho_prob * fetcher.tansho_odds
         self.fukusho_EXP_low = self.fukusho_prob * fetcher.fukusho_odds_low
-        self.fukusho_EXP_up = self.fukusho_prob * fetcher.fukusho_odds_up
+        
+        self.fukusho_EXP_up = self.fukusho_prob * fetcher.fukusho_odds_up 
         self.wide_EXP_low = self.wide_prob * fetcher.wide_odds_low
+        
         self.wide_EXP_up = self.wide_prob * fetcher.wide_odds_up
         self.umaren_EXP = self.umaren_prob * fetcher.umaren_odds
+        
         self.umatan_EXP = self.umatan_prob * fetcher.umatan_odds
+        
         self.sanrenpuku_EXP = self.sanrenpuku_prob * fetcher.sanrenpuku_odds
+        print("sanrenpuku")
+        print(self.sanrenpuku_EXP.shape)
+        print(fetcher.sanrenpuku_odds)
         self.sanrentan_EXP = self.sanrentan_prob * fetcher.sanrentan_odds
+        print("sanrentan")
+        print(self.sanrentan_EXP.shape)
+        print(fetcher.sanrentan_odds)
+        print(self.sanrentan_prob)
 
     def update_probs(self, new_rank_prob: list):
         self.rank_prob = new_rank_prob
@@ -85,8 +98,10 @@ class Bettor:
 
     def disp_EXP(self):
         print(f"tansho: {self.tansho_EXP}")
-        print(f"fukusho: {self.fukusho_EXP}")
-        print(f"wide: {self.wide_EXP}")
+        print(f"fukusho_low: {self.fukusho_EXP_low}")
+        print(f"fukusho_up: {self.fukusho_EXP_up}")
+        print(f"wide_low: {self.wide_EXP_low}")
+        print(f"wide_up: {self.wide_EXP_up}")
         print(f"umaren: {self.umaren_EXP}")
         print(f"umatan: {self.umatan_EXP}")
         print(f"sanrenpuku: {self.sanrenpuku_EXP}")
@@ -105,12 +120,12 @@ class Bettor:
         tansho_high = np.where(self.tansho_EXP > threshold)
         for i in tansho_high[0]:
             print(f"tansho:{i+1}: {self.tansho_EXP[i]}")
-        fukusho_high = np.where(self.fukusho_EXP > threshold)
+        fukusho_high = np.where(self.fukusho_EXP_low > threshold)
         for i in fukusho_high[0]:
-            print(f"fukusho:{i+1}: {self.fukusho_EXP[i]}")
-        wide_high = np.where(self.wide_EXP > threshold)
+            print(f"fukusho:{i+1}: {self.fukusho_EXP_low[i]}")
+        wide_high = np.where(self.wide_EXP_low > threshold)
         for i, j in zip(wide_high[0], wide_high[1]):
-            print(f"wide:{i+1}-{j+1}: {self.wide_EXP[i,j]}")
+            print(f"wide:{i+1}-{j+1}: {self.wide_EXP_low[i,j]}")
         umaren_high = np.where(self.umaren_EXP > threshold)
         for i, j in zip(umaren_high[0], umaren_high[1]):
             print(f"umaren:{i+1}-{j+1}: {self.umaren_EXP[i,j]}")
@@ -142,18 +157,22 @@ class Bettor:
         }
 
     @staticmethod
-    def prob_third_rank(rank_prob: list):
-        sort_rank_prob = np.sort(rank_prob)
-        rank = np.argsort(rank_prob)
-        prob_mat = np.zeros((18, 18))
+    def prob_third_rank(rank_prob: np.ndarray):
+        sort_rank_prob = np.sort(rank_prob)[::-1]
+        rank = np.argsort(-rank_prob)
+        prob_mat = np.zeros((len(rank_prob), len(rank_prob)))
         prob_mat[0, :] = sort_rank_prob
         prob_mat[1:, 0] = sort_rank_prob[1:]
         for i in range(1, 3):
             prob_mat[i, i] = 1 - prob_mat[i, :i].sum()
-            for j in range(i + 1, 18):
+            for j in range(i, len(rank_prob) - 1):
+                if prob_mat[j:, 0].sum() == 0:
+                    break
                 ratio = prob_mat[j, 0] / (prob_mat[j:, 0].sum())
-                prob_mat[j, i] = prob_mat[j - 1, i] * (1 - ratio)
-                prob_mat[j - 1, i] = prob_mat[j - 1, i] * ratio
+                prob_mat[j + 1, i] = prob_mat[j, i] * (1 - ratio)
+                prob_mat[j, i] = prob_mat[j, i] * ratio
+            prob_mat[-1, i] = 1 - prob_mat[:-1, i].sum()
             prob_mat[i, i + 1 :] = prob_mat[i + 1 :, i]
-        restore_rank = [np.where(rank == i)[0] for i in range(18)]
+        restore_rank = [np.where(rank == i)[0] for i in range(len(rank_prob))]
+        print(prob_mat)
         return prob_mat[:3, restore_rank]
