@@ -272,10 +272,13 @@ class Fetcher:
         result_tensor = torch.from_numpy(np_result_row).float()
 
         self.horse_data = result_tensor
+    def get_recent_odds_from_jra(self):
+        return asyncio.run(self.__get_recent_odds_from_jra())
 
-    async def get_recent_odds_from_jra(self):
+    async def __get_recent_odds_from_jra(self):
         async with playwright_context() as (browser, context):
             page = await context.new_page()
+            page.set_default_timeout(10000)
             await Fetcher.go_recent_race_odds(
                 int(self.race_bango), page, self.race_name_abbre
             )
@@ -607,8 +610,8 @@ class Fetcher:
         async with page.expect_navigation():
             await page.locator("body").locator("#contents").locator(
                 "#contentsBody"
-            ).locator("#race_select").locator("table").locator("tbody tr").nth(
+            ).locator(".race_select").locator("table").locator("tbody tr").nth(
                 race_number - 1
-            ).get_by_role(
+            ).locator("th.race_num").get_by_role(
                 "link"
             ).click()
