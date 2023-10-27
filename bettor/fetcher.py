@@ -21,7 +21,7 @@ from uma_predict.db.models import (
 
 # asyncioの入れ子を許す
 import nest_asyncio
-from uma_predict.df.alpha_hyo import (
+from uma_predict.df.beta_hyo import (
     shutsubahyo,
     race_condition,
     hist_number,
@@ -85,10 +85,10 @@ def float_or_nan(str_value):
 class Fetcher:
     def __init__(
         self,
-        kaisai_nen: str,
-        kaisai_tsukihi: str,
-        keibajo_code: str,
-        race_bango: str,
+        kaisai_nen: str|None=None,
+        kaisai_tsukihi: str|None=None,
+        keibajo_code: str|None=None,
+        race_bango: str|None=None,
         race_name_abbre: str | None = None,
         db=SessionLocal(),
     ) -> None:

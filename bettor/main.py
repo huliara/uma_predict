@@ -10,11 +10,11 @@ import torch.nn.functional as F
 target_race_key = 202106030811
 shusso_tosu = 18
 
-train_data=pl.read_parquet("df\data9\\2016-2021-5-10.parquet")
+train_data=pl.read_parquet("df\data10\\2016-2021-5-10.parquet")
 column_len=train_data.shape[1]-18
 
 model = HorsePredictor.load_from_checkpoint(
-    "lightning_logs/version_74/checkpoints/epoch=29-step=4290.ckpt",
+    "lightning_logs/version_76/checkpoints/epoch=49-step=7150.ckpt",
     input_size=column_len,
     output_size=18,
 )
