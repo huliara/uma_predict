@@ -211,6 +211,123 @@ class Career(Reflected, Base):
     yoso_juni                   :Mapped[str]
     kyakushitsu_hantei          :Mapped[str]
 
+class Tansho(Reflected, Base):
+    __tablename__ = "jvd_o1"
+    record_id              :Mapped[str]               
+    data_kubun             :Mapped[str]               
+    data_sakusei_nengappi  :Mapped[str]               
+    kaisai_nen             :Mapped[str] = mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi         :Mapped[str] = mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code           :Mapped[str] = mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai             :Mapped[str]               
+    kaisai_nichime         :Mapped[str]               
+    race_bango             :Mapped[str] = mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun   :Mapped[str]               
+    toroku_tosu            :Mapped[str]               
+    shusso_tosu            :Mapped[str]               
+    hatsubai_flag_tansho   :Mapped[str]               
+    hatsubai_flag_fukusho  :Mapped[str]               
+    hatsubai_flag_wakuren  :Mapped[str]               
+    fukusho_chakubarai_key :Mapped[str]               
+    odds_tansho            :Mapped[str]               
+    odds_fukusho           :Mapped[str]               
+    odds_wakuren           :Mapped[str]               
+    hyosu_gokei_tansho     :Mapped[str]               
+    hyosu_gokei_fukusho    :Mapped[str]               
+    hyosu_gokei_wakuren    :Mapped[str]              
+
+
+class Umaren(Reflected, Base):
+    __tablename__ = "jvd_o2"
+    record_id             :Mapped[str]              
+    data_kubun            :Mapped[str]              
+    data_sakusei_nengappi :Mapped[str]              
+    kaisai_nen            :Mapped[str]=mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi        :Mapped[str]=mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code          :Mapped[str]=mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai            :Mapped[str]              
+    kaisai_nichime        :Mapped[str]              
+    race_bango            :Mapped[str]=mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun  :Mapped[str]              
+    toroku_tosu           :Mapped[str]              
+    shusso_tosu           :Mapped[str]              
+    hatsubai_flag_umaren  :Mapped[str]              
+    odds_umaren           :Mapped[str]              
+    hyosu_gokei_umaren    :Mapped[str]              
+
+class Wide(Reflected, Base):
+    __tablename__ = "jvd_o3"
+    record_id             :Mapped[str]              
+    data_kubun            :Mapped[str]              
+    data_sakusei_nengappi :Mapped[str]              
+    kaisai_nen            :Mapped[str]=mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi        :Mapped[str]=mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code          :Mapped[str]=mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai            :Mapped[str]              
+    kaisai_nichime        :Mapped[str]              
+    race_bango            :Mapped[str]=mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun  :Mapped[str]              
+    toroku_tosu           :Mapped[str]              
+    shusso_tosu           :Mapped[str]              
+    hatsubai_flag_wide  :Mapped[str]              
+    odds_wide           :Mapped[str]              
+    hyosu_gokei_wide    :Mapped[str]              
+
+class Umatan(Reflected, Base):
+    __tablename__ = "jvd_o4"
+    record_id             :Mapped[str]              
+    data_kubun            :Mapped[str]              
+    data_sakusei_nengappi :Mapped[str]              
+    kaisai_nen            :Mapped[str]=mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi        :Mapped[str]=mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code          :Mapped[str]=mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai            :Mapped[str]              
+    kaisai_nichime        :Mapped[str]              
+    race_bango            :Mapped[str]=mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun  :Mapped[str]              
+    toroku_tosu           :Mapped[str]              
+    shusso_tosu           :Mapped[str]              
+    hatsubai_flag_umatan  :Mapped[str]              
+    odds_umatan           :Mapped[str]              
+    hyosu_gokei_umatan    :Mapped[str]              
+
+class Sanrenpuku(Reflected, Base):
+    __tablename__ = "jvd_o5"
+    record_id             :Mapped[str]              
+    data_kubun            :Mapped[str]              
+    data_sakusei_nengappi :Mapped[str]              
+    kaisai_nen            :Mapped[str]=mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi        :Mapped[str]=mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code          :Mapped[str]=mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai            :Mapped[str]              
+    kaisai_nichime        :Mapped[str]              
+    race_bango            :Mapped[str]=mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun  :Mapped[str]              
+    toroku_tosu           :Mapped[str]              
+    shusso_tosu           :Mapped[str]              
+    hatsubai_flag_sanrenpuku  :Mapped[str]              
+    odds_sanrenpuku           :Mapped[str]              
+    hyosu_gokei_sanrenpuku    :Mapped[str]              
+
+class Sanrentan(Reflected, Base):
+    __tablename__ = "jvd_o6"
+    record_id             :Mapped[str]              
+    data_kubun            :Mapped[str]              
+    data_sakusei_nengappi :Mapped[str]              
+    kaisai_nen            :Mapped[str]=mapped_column("kaisai_nen",primary_key=True)      
+    kaisai_tsukihi        :Mapped[str]=mapped_column("kaisai_tsukihi",primary_key=True)      
+    keibajo_code          :Mapped[str]=mapped_column("keibajo_code",primary_key=True)      
+    kaisai_kai            :Mapped[str]              
+    kaisai_nichime        :Mapped[str]              
+    race_bango            :Mapped[str]=mapped_column("race_bango",primary_key=True)      
+    happyo_tsukihi_jifun  :Mapped[str]              
+    toroku_tosu           :Mapped[str]              
+    shusso_tosu           :Mapped[str]              
+    hatsubai_flag_sanrentan  :Mapped[str]              
+    odds_sanrentan           :Mapped[str]              
+    hyosu_gokei_sanrentan    :Mapped[str]              
+
+
 class Track(Base):
     __tablename__="track"
     id:Mapped[uuid.UUID]=mapped_column("id",primary_key=True,default=uuid.uuid4)

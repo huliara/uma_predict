@@ -1,0 +1,21 @@
+pckeiba=# \d jvd_o3;
+                                 テーブル"public.jvd_o3"
+          列           |         タイプ          | 照合順序 | Null 値を許容 | デフォルト
+-----------------------+-------------------------+----------+---------------+------------
+ record_id             | character varying(2)    |          |               |
+ data_kubun            | character varying(1)    |          |               |
+ data_sakusei_nengappi | character varying(8)    |          |               |
+ kaisai_nen            | character varying(4)    |          | not null      |
+ kaisai_tsukihi        | character varying(4)    |          | not null      |
+ keibajo_code          | character varying(2)    |          | not null      |
+ kaisai_kai            | character varying(2)    |          |               |
+ kaisai_nichime        | character varying(2)    |          |               |
+ race_bango            | character varying(2)    |          | not null      |
+ happyo_tsukihi_jifun  | character varying(8)    |          |               |
+ toroku_tosu           | character varying(2)    |          |               |
+ shusso_tosu           | character varying(2)    |          |               |
+ hatsubai_flag_wide    | character varying(1)    |          |               |
+ odds_wide             | character varying(2601) |          |               |
+ hyosu_gokei_wide      | character varying(11)   |          |               |
+インデックス:
+    "jvd_o3_pk" PRIMARY KEY, btree (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango)
