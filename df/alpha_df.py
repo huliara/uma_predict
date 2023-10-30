@@ -4,7 +4,7 @@ from uma_predict.db.database import SessionLocal
 from sqlalchemy.orm import Session
 from sqlalchemy.future import select
 from sqlalchemy import desc
-from utils import (
+from uma_predict.df.utils import (
     field_mapper,
     grade_mapper,
     condition_mapper,
@@ -80,7 +80,6 @@ for i in range(1, hist_number + 1):
     hist_column = [column + str(i) for column in horse_hist_column_master]
     race_df_columns += hist_column
 
-
 def shutsubahyo(race: Race, db: Session):
     horses = db.scalars(
         select(Career)
@@ -128,6 +127,7 @@ def shutsubahyo(race: Race, db: Session):
     # 特徴量を作成
     for horse in horses:
         horse_master = db.get(Horse, horse.ketto_toroku_bango)
+        print(horse.umaban)
         current_horse_dict = {
             "barei": (
                 datetime.datetime.strptime(
@@ -185,9 +185,9 @@ def shutsubahyo(race: Race, db: Session):
                     Race.track_code >= "00",
                 )
             ).first()
-
             if past_race is None:
                 continue
+            print(past_race.kaisai_nen+past_race.kaisai_tsukihi)
             past_race_condition = int(past_race.babajotai_code_shiba) + int(
                 past_race.babajotai_code_dirt
             )
@@ -305,9 +305,10 @@ def shutsubahyo(race: Race, db: Session):
             if hist_index == hist_number:
                 break
             hist_index += 1
+
     return race_df
 
-
+print("should not called")
 data = []
 
 races = db.scalars(

@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 import pandas as pd
+import numpy as np
 import pprint
 
 
@@ -140,3 +141,50 @@ def hist_model_to_pandas(
     filterd = data[columns]
     
     return filterd
+
+def chakusa_num(chakusa_list: list):
+    chakusa_num = [1.0] * 17
+    for index, chakusa in enumerate(chakusa_list):
+        if chakusa == "D  ":
+            chakusa_num[index] = 0.5
+        elif chakusa == "H  ":
+            chakusa_num[index] = 0.525
+        elif chakusa == "A  ":
+            chakusa_num[index] = 0.55
+        elif chakusa == "K  ":
+            chakusa_num[index] = 0.6
+        elif chakusa == " 12":
+            chakusa_num[index] = 0.691
+        elif chakusa == " 34":
+            chakusa_num[index] = 0.773
+        elif chakusa == "1  ":
+            chakusa_num[index] = 0.841
+        elif chakusa == "112":
+            chakusa_num[index] = 0.933
+        elif chakusa == "114":
+            chakusa_num[index] = 0.894
+        elif chakusa == "134":
+            chakusa_num[index] = 0.956
+        elif chakusa == "2  ":
+            chakusa_num[index] = 0.977
+        elif chakusa == "212":
+            chakusa_num[index] = 0.993
+    return chakusa_num
+
+def rank_probability(chakusa_num: list, tosu_limit: int = 8):
+    prob_list = np.zeros(18)
+    prob_list[0] = 1
+    for j in range(0, tosu_limit):
+        prob_list[j + 1] = prob_list[j] * (1 - chakusa_num[j])
+        prob_list[j] = prob_list[j] * chakusa_num[j]
+    return prob_list
+
+
+def bataiju_standard(bataiju: str):
+    bataiju_mean = 469.12418300653593
+    bataiju_std = 28.81961143804636
+    return 2 + (float(bataiju) - bataiju_mean) / bataiju_std
+
+
+def futan_juryo_standard(futan_juryo: str):
+    return (float(futan_juryo) - 510.0) / 90.0
