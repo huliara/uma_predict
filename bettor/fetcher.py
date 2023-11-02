@@ -21,7 +21,7 @@ from uma_predict.db.models import (
 import datetime
 import statistics
 import nest_asyncio
-from uma_predict.df.beta_hyo import (
+from uma_predict.df.camma_hyo import (
     shutsubahyo,
     race_condition,
     hist_number,
@@ -292,7 +292,6 @@ class Fetcher:
             result_row = pd.concat([result_row, horse_row], axis=1)
         result_df.index = [0]
         result_row = pd.concat([result_row, result_df], axis=1)
-        print(result_row)
         np_result_row = result_row.to_numpy()
         result_tensor = torch.from_numpy(np_result_row).float()
         self.horse_data = result_tensor
@@ -415,7 +414,7 @@ class Fetcher:
             self.sanrenpuku_odds = sanrenpuku_odds
 
     def read_horse_data_from_csv(self):
-        df = pd.read_csv(f"{self.path}/horsedata.csv",index_col=0)
+        df = pd.read_csv(f"{self.path}/horsedata.csv", index_col=0)
         np_data = df.to_numpy()
         self.horse_data = torch.from_numpy(np_data).float()
 
@@ -715,7 +714,7 @@ class Fetcher:
                             "grade_code": hist_grade,
                             "kyori": (hist_kyori_raw - 1000.0) / 2600.0,
                             "time_sa": 4
-                            - (target_horse_time- first_horse_time),
+                            - (target_horse_time - first_horse_time),
                             "soha_time_relative": 4
                             - ((target_horse_time - time_average) / time_std),
                             "kohan_3f_relative": 4
@@ -743,9 +742,7 @@ class Fetcher:
                     await page.go_back()
 
             print(data)
-            data.to_csv(
-                f"{self.path}/horsedata.csv"
-            )
+            data.to_csv(f"{self.path}/horsedata.csv")
             np_data = data.to_numpy()
             tensor_data = torch.from_numpy(np_data).float()
             self.horse_data = tensor_data

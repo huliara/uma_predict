@@ -19,7 +19,7 @@ fetcher = Fetcher(
     keibajo_code="05"
 )
 model = HorsePredictor.load_from_checkpoint(
-    "lightning_logs/version_76/checkpoints/epoch=49-step=7150.ckpt",
+    "lightning_logs/version_76_bbest/checkpoints/epoch=49-step=7150.ckpt",
     input_size=column_len,
     output_size=18,
 )

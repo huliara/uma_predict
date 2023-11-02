@@ -1,18 +1,20 @@
 import numpy as np
-from fetcher import Fetcher
+from uma_predict.bettor.fetcher import Fetcher
 
 np.set_printoptions(linewidth=1400)
 
 
 class Bettor:
-    def __init__(self, rank_prob: list) -> None:
+    def __init__(self, rank_prob: list, prob_th: float = 0.001) -> None:
         self.rank_prob = rank_prob
         shusso_tosu = len(rank_prob)
+        self.shusso_tosu = shusso_tosu
+        self.prob_th = prob_th
         self.tansho_prob = None
         self.fukusho_prob = None
-        self.wide_prob = np.zeros((shusso_tosu, shusso_tosu))
-        self.umaren_prob = np.zeros((shusso_tosu, shusso_tosu))
-        self.umatan_prob = np.zeros((shusso_tosu, shusso_tosu))
+        self.wide_prob = None
+        self.umaren_prob = None
+        self.umatan_prob = None
         self.sanrenpuku_prob = np.zeros(
             (shusso_tosu, shusso_tosu, shusso_tosu)
         )
@@ -28,7 +30,25 @@ class Bettor:
         self.sanrentan_EXP = None
 
     def setup_probs(self):
-        third_rank_prob = Bettor.prob_third_rank(self.rank_prob)
+        third_rank_prob = self.prob_third_rank(self.rank_prob)
+        third_rank_prob=np.where(third_rank_prob < self.prob_th, 0, third_rank_prob)
+        '''
+        third_rank_prob[0] = np.where(
+            third_rank_prob[0] < 2.0/ self.shusso_tosu,
+            0,
+            third_rank_prob[0],
+        )
+        third_rank_prob[1] = np.where(
+            third_rank_prob[1] < 1.8  / self.shusso_tosu,
+            0,
+            third_rank_prob[1],
+        )
+        third_rank_prob[2] = np.where(
+            third_rank_prob[2] < 1.5/ self.shusso_tosu,
+            0,
+            third_rank_prob[2],
+        )
+        '''
         self.tansho_prob = third_rank_prob[0, :].T[0]
         self.fukusho_prob = third_rank_prob.sum(axis=0).T[0]
         shusso_tosu = len(self.rank_prob)
@@ -60,7 +80,14 @@ class Bettor:
                         + self.sanrentan_prob[k, i, j]
                         + self.sanrentan_prob[k, j, i]
                     )
-
+        '''
+        self.sanrenpuku_prob=np.where(
+            self.sanrenpuku_prob < self.prob_th, 0, self.sanrenpuku_prob
+        )
+        self.sanrentan_prob=np.where(
+            self.sanrentan_prob < self.prob_th, 0, self.sanrentan_prob
+        )
+        '''
         self.umatan_prob = self.sanrentan_prob.sum(axis=2)
         self.umaren_prob = np.triu(self.umatan_prob + self.umatan_prob.T, k=1)
         self.wide_prob = (
@@ -68,29 +95,45 @@ class Bettor:
             + self.sanrenpuku_prob.sum(axis=2)
             + self.sanrenpuku_prob.sum(axis=0)
         )
-        
 
     def set_EXP(self, fetcher: Fetcher):
-        self.tansho_EXP = self.tansho_prob * fetcher.tansho_odds
-        self.fukusho_EXP_low = self.fukusho_prob * fetcher.fukusho_odds_low
-        
-        self.fukusho_EXP_up = self.fukusho_prob * fetcher.fukusho_odds_up 
-        self.wide_EXP_low = self.wide_prob * fetcher.wide_odds_low
-        
-        self.wide_EXP_up = self.wide_prob * fetcher.wide_odds_up
-        self.umaren_EXP = self.umaren_prob * fetcher.umaren_odds
-        
-        self.umatan_EXP = self.umatan_prob * fetcher.umatan_odds
-        
-        self.sanrenpuku_EXP = self.sanrenpuku_prob * fetcher.sanrenpuku_odds
-        print("sanrenpuku")
-        print(self.sanrenpuku_EXP.shape)
-        print(fetcher.sanrenpuku_odds)
-        self.sanrentan_EXP = self.sanrentan_prob * fetcher.sanrentan_odds
-        print("sanrentan")
-        print(self.sanrentan_EXP.shape)
-        print(fetcher.sanrentan_odds)
-        print(self.sanrentan_prob)
+        self.tansho_EXP = (
+            self.tansho_prob * fetcher.tansho_odds + self.tansho_prob - 1
+        )
+        self.fukusho_EXP_low = (
+            self.fukusho_prob * fetcher.fukusho_odds_low
+            + self.fukusho_prob
+            - 1
+        )
+
+        self.fukusho_EXP_up = (
+            self.fukusho_prob * fetcher.fukusho_odds_up 
+        )
+        self.wide_EXP_low = (
+            self.wide_prob * fetcher.wide_odds_low 
+        )
+
+        self.wide_EXP_up = (
+            self.wide_prob * fetcher.wide_odds_up 
+        )
+        self.umaren_EXP = (
+            self.umaren_prob * fetcher.umaren_odds
+        )
+
+        self.umatan_EXP = (
+            self.umatan_prob * fetcher.umatan_odds
+        )
+
+        self.sanrenpuku_EXP = (
+            self.sanrenpuku_prob * fetcher.sanrenpuku_odds
+            + self.sanrenpuku_prob
+            - 1
+        )
+        self.sanrentan_EXP = (
+            self.sanrentan_prob * fetcher.sanrentan_odds
+            + self.sanrentan_prob
+            - 1
+        )
 
     def update_probs(self, new_rank_prob: list):
         self.rank_prob = new_rank_prob
@@ -148,16 +191,15 @@ class Bettor:
     def high_exp_tickets(self, threshold: float = 1.0):
         return {
             "tansho": np.where(self.tansho_EXP > threshold),
-            "fukusho": np.where(self.fukusho_EXP > threshold),
-            "wide": np.where(self.wide_EXP > threshold),
+            "fukusho": np.where(self.fukusho_EXP_low > threshold),
+            "wide": np.where(self.wide_EXP_low > threshold),
             "umaren": np.where(self.umaren_EXP > threshold),
             "umatan": np.where(self.umatan_EXP > threshold),
             "sanrenpuku": np.where(self.sanrenpuku_EXP > threshold),
             "sanrentan": np.where(self.sanrentan_EXP > threshold),
         }
 
-    @staticmethod
-    def prob_third_rank(rank_prob: np.ndarray):
+    def prob_third_rank(self, rank_prob: np.ndarray):
         sort_rank_prob = np.sort(rank_prob)[::-1]
         rank = np.argsort(-rank_prob)
         prob_mat = np.zeros((len(rank_prob), len(rank_prob)))
@@ -174,5 +216,5 @@ class Bettor:
             prob_mat[-1, i] = 1 - prob_mat[:-1, i].sum()
             prob_mat[i, i + 1 :] = prob_mat[i + 1 :, i]
         restore_rank = [np.where(rank == i)[0] for i in range(len(rank_prob))]
-        print(prob_mat)
-        return prob_mat[:3, restore_rank]
+        prob_mat = prob_mat[:, restore_rank]
+        return prob_mat[:3, :]

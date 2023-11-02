@@ -139,8 +139,9 @@ def hist_model_to_pandas(
     race_dict |= career[1].__dict__
     data = pd.DataFrame(race_dict, index=[index])
     filterd = data[columns]
-    
+
     return filterd
+
 
 def chakusa_num(chakusa_list: list):
     chakusa_num = [1.0] * 17
@@ -171,12 +172,52 @@ def chakusa_num(chakusa_list: list):
             chakusa_num[index] = 0.993
     return chakusa_num
 
+
+def chakusa_num_v2(chakusa_list: list):
+    chakusa_num = [0.0] * 17
+    for index, chakusa in enumerate(chakusa_list):
+        if chakusa == "D  ":
+            chakusa_num[index] = 1.0
+        elif chakusa == "H  ":
+            chakusa_num[index] = 0.91
+        elif chakusa == "A  ":
+            chakusa_num[index] = 0.83
+        elif chakusa == "K  ":
+            chakusa_num[index] = 0.7
+        elif chakusa == " 12":
+            chakusa_num[index] = 0.48
+        elif chakusa == " 34":
+            chakusa_num[index] = 0.4
+        elif chakusa == "1  ":
+            chakusa_num[index] = 0.37
+        elif chakusa == "112":
+            chakusa_num[index] = 0.22
+        elif chakusa == "114":
+            chakusa_num[index] = 0.29
+        elif chakusa == "134":
+            chakusa_num[index] = 0.17
+        elif chakusa == "2  ":
+            chakusa_num[index] = 0.14
+        elif chakusa == "212":
+            chakusa_num[index] = 0.08
+    return chakusa_num
+
+
 def rank_probability(chakusa_num: list, tosu_limit: int = 8):
     prob_list = np.zeros(18)
     prob_list[0] = 1
     for j in range(0, tosu_limit):
         prob_list[j + 1] = prob_list[j] * (1 - chakusa_num[j])
         prob_list[j] = prob_list[j] * chakusa_num[j]
+    return prob_list
+
+
+def rank_probability_v2(chakusa_num: list, tosu_limit: int = 8):
+    prob_list = np.zeros(18)
+    prob_list[0] = 1
+    for j in range(0, tosu_limit):
+        prob_list[j + 1] = prob_list[j] * chakusa_num[j]
+    prob_list = prob_list / np.sum(prob_list)
     return prob_list
 
 
