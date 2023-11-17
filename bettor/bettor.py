@@ -1,5 +1,5 @@
 import numpy as np
-from uma_predict.bettor.fetcher import Fetcher
+from uma_predict.bettor.fetcher_odds import Fetcher
 
 np.set_printoptions(linewidth=1400)
 

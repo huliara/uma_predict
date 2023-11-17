@@ -1,21 +1,16 @@
-from uma_predict.bettor.fetcher import Fetcher
+from uma_predict.bettor.fetcher_odds import Fetcher
 import numpy as np
 import torch.nn.functional as F
-from uma_predict.network.predictor4 import HorsePredictor
+from uma_predict.network.predictor5 import HorsePredictor
 import polars as pl
 from uma_predict.bettor.bettor import Bettor
-from uma_predict.db.database import SessionLocal
-from uma_predict.db.models import Race, Career, BackMoney
-from sqlalchemy.future import select
 import torch
-import matplotlib.pyplot as plt
 import time
 
-db = SessionLocal()
 np.set_printoptions(linewidth=np.inf)
 
 
-train_data = pl.read_parquet("df\dataOdds\\2016-2021-30_v3.parquet")
+train_data = pl.read_parquet("df\dataOdds\\2022-1_v2.parquet")
 column_len = train_data.shape[1] - 18
 
 model = HorsePredictor.load_from_checkpoint(
@@ -33,23 +28,27 @@ def int_or_nan(num: int):
     except:
         return np.nan
 
+today_abbre_list=["5回東京5日","3回京都5日","3回福島5日"]
 
 fetcher = Fetcher(
     field_condition=1,
     kaisai_nen="2023",
-    kaisai_tsukihi="1105",
-    race_bango="12",
-    race_name_abbre="3回京都2日",
+    kaisai_tsukihi="1118",
+    race_bango="1",
+    race_name_abbre=today_abbre_list[1],
 )
 fetcher.get_recent_odds_from_jra()
 fetcher.setup_odds_df_db()
 odds_df = torch.from_numpy(fetcher.odds_df.to_numpy()).float()
 
-_y = F.softmax(model(odds_df), dim=1)[:, : fetcher.toroku_tosu]
+_y = F.softmax(model(odds_df), dim=1)[:, : fetcher.shusso_tosu]
 _y = _y.detach().numpy().copy()[0]
 y = _y / _y.sum()
 for i, j in enumerate(y):
-    print(f"{i+1}番: {j}")
+    if i<9:
+        print(f"0{i+1}番: {j}")
+    else:
+        print(f"{i+1}番: {j}")
 bettor = Bettor(rank_prob=y, prob_th=1.95 / int(fetcher.shusso_tosu))
 bettor.setup_probs()
 bettor.set_EXP(fetcher)
