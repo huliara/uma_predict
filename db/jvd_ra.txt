@@ -1,0 +1,69 @@
+                                  テーブル"public.jvd_ra"
+            列             |         タイプ         | 照合順序 | Null 値を許容 | デフォルト
+---------------------------+------------------------+----------+---------------+------------
+ record_id                 | character varying(2)   |          |               |
+ data_kubun                | character varying(1)   |          |               |
+ data_sakusei_nengappi     | character varying(8)   |          |               |
+ kaisai_nen                | character varying(4)   |          | not null      |
+ kaisai_tsukihi            | character varying(4)   |          | not null      |
+ keibajo_code              | character varying(2)   |          | not null      |
+ kaisai_kai                | character varying(2)   |          |               |
+ kaisai_nichime            | character varying(2)   |          |               |
+ race_bango                | character varying(2)   |          | not null      |
+ yobi_code                 | character varying(1)   |          |               |
+ tokubetsu_kyoso_bango     | character varying(4)   |          |               |
+ kyosomei_hondai           | character varying(60)  |          |               |
+ kyosomei_fukudai          | character varying(60)  |          |               |
+ kyosomei_kakkonai         | character varying(60)  |          |               |
+ kyosomei_hondai_eur       | character varying(120) |          |               |
+ kyosomei_fukudai_eur      | character varying(120) |          |               |
+ kyosomei_kakkonai_eur     | character varying(120) |          |               |
+ kyosomei_ryakusho_10      | character varying(20)  |          |               |
+ kyosomei_ryakusho_6       | character varying(12)  |          |               |
+ kyosomei_ryakusho_3       | character varying(6)   |          |               |
+ kyosomei_kubun            | character varying(1)   |          |               |
+ jusho_kaiji               | character varying(3)   |          |               |
+ grade_code                | character varying(1)   |          |               |
+ grade_code_henkomae       | character varying(1)   |          |               |
+ kyoso_shubetsu_code       | character varying(2)   |          |               |
+ kyoso_kigo_code           | character varying(3)   |          |               |
+ juryo_shubetsu_code       | character varying(1)   |          |               |
+ kyoso_joken_code_2sai     | character varying(3)   |          |               |
+ kyoso_joken_code_3sai     | character varying(3)   |          |               |
+ kyoso_joken_code_4sai     | character varying(3)   |          |               |
+ kyoso_joken_code_5sai_ijo | character varying(3)   |          |               |
+ kyoso_joken_code          | character varying(3)   |          |               |
+ kyoso_joken_meisho        | character varying(60)  |          |               |
+ kyori                     | character varying(4)   |          |               |
+ kyori_henkomae            | character varying(4)   |          |               |
+ track_code                | character varying(2)   |          |               |
+ track_code_henkomae       | character varying(2)   |          |               |
+ course_kubun              | character varying(2)   |          |               |
+ course_kubun_henkomae     | character varying(2)   |          |               |
+ honshokin                 | character varying(56)  |          |               |
+ honshokin_henkomae        | character varying(40)  |          |               |
+ fukashokin                | character varying(40)  |          |               |
+ fukashokin_henkomae       | character varying(24)  |          |               |
+ hasso_jikoku              | character varying(4)   |          |               |
+ hasso_jikoku_henkomae     | character varying(4)   |          |               |
+ toroku_tosu               | character varying(2)   |          |               |
+ shusso_tosu               | character varying(2)   |          |               |
+ nyusen_tosu               | character varying(2)   |          |               |
+ tenko_code                | character varying(1)   |          |               |
+ babajotai_code_shiba      | character varying(1)   |          |               |
+ babajotai_code_dirt       | character varying(1)   |          |               |
+ lap_time                  | character varying(75)  |          |               |
+ shogai_mile_time          | character varying(4)   |          |               |
+ zenhan_3f                 | character varying(3)   |          |               |
+ zenhan_4f                 | character varying(3)   |          |               |
+ kohan_3f                  | character varying(3)   |          |               |
+ kohan_4f                  | character varying(3)   |          |               |
+ corner_tsuka_juni_1       | character varying(72)  |          |               |
+ corner_tsuka_juni_2       | character varying(72)  |          |               |
+ corner_tsuka_juni_3       | character varying(72)  |          |               |
+ corner_tsuka_juni_4       | character varying(72)  |          |               |
+ record_koshin_kubun       | character varying(1)   |          |               |
+インデックス:
+    "jvd_ra_pk" PRIMARY KEY, btree (kaisai_nen, kaisai_tsukihi, keibajo_code, race_bango)
+    "jvd_ra_idx1" btree ((kaisai_nen::text || kaisai_tsukihi::text))
+    "jvd_ra_idx2" btree (tokubetsu_kyoso_bango)
