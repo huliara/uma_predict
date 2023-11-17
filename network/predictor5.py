@@ -11,22 +11,20 @@ class HorsePredictor(pl.LightningModule):
         self,
         input_size,
         output_size,
-        hiden_layer_size: list[int] = [2048, 1024, 512, 256, 128, 64],
+        hiden_layer_size: list[int] = [2048, 512, 32],
     ):
         super().__init__()
-        self.train_acc = Accuracy(task="multiclass",num_classes=18)
-        self.val_acc = Accuracy(task="multiclass",num_classes=18)
-        self.test_acc = Accuracy(task="multiclass",num_classes=18)
+        self.train_acc = Accuracy(task="multiclass", num_classes=18)
+        self.val_acc = Accuracy(task="multiclass", num_classes=18)
+        self.test_acc = Accuracy(task="multiclass", num_classes=18)
         all_layers = []
         first_layersize = input_size
         for unit in hiden_layer_size:
             layer = nn.Linear(first_layersize, unit)
             all_layers.append(layer)
-            all_layers.append(nn.LeakyReLU())
+            all_layers.append(nn.ReLU())
             first_layersize = unit
-
         all_layers.append(nn.Linear(hiden_layer_size[-1], output_size))
-        all_layers.append(CustomSoftmax(dim=1))
         self.model = nn.Sequential(*all_layers)
 
     def forward(self, x):
@@ -35,9 +33,9 @@ class HorsePredictor(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.mse_loss(y_hat, y)
-        first = torch.argmax(y[0::3], dim=1)
-        pred_1 = torch.argmax(y_hat[0::3], dim=1)
+        loss = F.cross_entropy(y_hat, y)
+        pred_1 = torch.argmax(y_hat, dim=1)
+        first = torch.argmax(y, dim=1)
         self.train_acc.update(pred_1, first)
         self.log("train_loss", loss, prog_bar=True)
         return loss
@@ -49,11 +47,11 @@ class HorsePredictor(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.mse_loss(y_hat, y)
-        first = torch.argmax(y[0::3], dim=1)
-        pred_1 = torch.argmax(y_hat[0::3], dim=1)
+        loss = F.cross_entropy(y_hat, y)
+        pred_1 = torch.argmax(y_hat, dim=1)
+        first = torch.argmax(y, dim=1)
         self.val_acc.update(pred_1, first)
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True)
         return loss
 
     def on_validation_epoch_end(self):
@@ -63,17 +61,16 @@ class HorsePredictor(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.mse_loss(y_hat, y)
-        first = torch.argmax(y[0::3], dim=1)
-        pred_1 = torch.argmax(y_hat[0::3], dim=1)
+        loss = nn.functional.cross_entropy(y_hat, y)
+        pred_1 = torch.argmax(y_hat, dim=1)
+        first = torch.argmax(y, dim=1)
         self.test_acc.update(pred_1, first)
-        self.log("train_loss", loss, prog_bar=True)
+        self.log("test_loss", loss, prog_bar=True)
         return loss
 
+    def on_test_epoch_end(self):
+        self.log("test_acc_epoch", self.test_acc.compute(), prog_bar=True)
+        self.test_acc.reset()
+
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1.0)
-
-
-class CustomSoftmax(nn.Softmax):
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.softmax(input, self.dim, _stacklevel=5) * 3.0
+        return torch.optim.Adam(self.parameters(), lr=0.0001)

@@ -21,37 +21,25 @@ from uma_predict.db.models import (
 import datetime
 import statistics
 import nest_asyncio
-from uma_predict.df.camma_hyo import (
+from uma_predict.df.epsilon_hyo import (
     shutsubahyo,
-    race_condition,
-    hist_number,
+    initial_column,
     current_horse_column_master,
     horse_hist_column_master,
 )
+
 from uma_predict.df.utils import (
     field_mapper,
     condition_mapper,
     grade_mapper,
     futan_juryo_standard,
     bataiju_standard,
+    kyoso_joken_mapper,
 )
 from uma_predict.db.database import SessionLocal
 import torch
 import os
 
-final_df_columns = []
-final_df_columns += race_condition
-
-for i in range(1, 19):
-    current_horse_column = [
-        str(i) + column for column in current_horse_column_master
-    ]
-    final_df_columns += current_horse_column
-    for j in range(1, hist_number + 1):
-        hist_column = [
-            str(i) + column + str(j) for column in horse_hist_column_master
-        ]
-        final_df_columns += hist_column
 
 nest_asyncio.apply()
 
@@ -105,6 +93,7 @@ class Fetcher:
         keibajo_code: str | None = None,
         race_bango: str | None = None,
         race_name_abbre: str | None = None,
+        hist_number: int = 5,
         db=SessionLocal(),
     ) -> None:
         self.kaisai_nen = kaisai_nen
@@ -114,6 +103,7 @@ class Fetcher:
         self.race_name_abbre = race_name_abbre  # 1回中山5日など
         self.field_condition = field_condition
         self.path = f"./data/{self.kaisai_nen}/{self.kaisai_tsukihi}/{self.keibajo_code}/{self.race_bango}"
+        self.shusso_tosu = None
         self.toroku_tosu = None
         self.tansho_odds = None
         self.fukusho_odds_low = None
@@ -125,7 +115,22 @@ class Fetcher:
         self.sanrenpuku_odds = None
         self.sanrentan_odds = None
         self.horse_data = None
+        self.odds_df = None
         self.db = db
+        self.final_df_columns = []
+        self.final_df_columns += initial_column
+        self.hist_number = hist_number
+        for i in range(1, 19):
+            current_horse_column = [
+                str(i) + column for column in current_horse_column_master
+            ]
+            self.final_df_columns += current_horse_column
+            for j in range(1, hist_number + 1):
+                hist_column = [
+                    str(i) + column + str(j)
+                    for column in horse_hist_column_master
+                ]
+                self.final_df_columns += hist_column
 
     def setup_dir(self):
         if not os.path.isdir(self.path):
@@ -187,6 +192,7 @@ class Fetcher:
                 Umatan.race_bango == self.race_bango,
             )
         ).one()
+
         striped = data.odds_umatan.replace(" ", "")
         odds_str = [striped[i : i + 13] for i in range(0, len(striped), 13)]
         target_odds = np.zeros((self.toroku_tosu, self.toroku_tosu))
@@ -256,7 +262,7 @@ class Fetcher:
             ] = (float_or_nan(odd[6:12]) * 0.1)
         self.sanrenpuku_odds = target_odds
 
-    def get_horse_data_from_db(self):
+    def get_horse_data_from_db(self, hist_number: int):
         db = self.db
         race = db.scalars(
             select(Race).filter(
@@ -266,18 +272,19 @@ class Fetcher:
                 Race.race_bango == self.race_bango,
             )
         ).one()
-        race_df = shutsubahyo(race, db)
+        race_df = shutsubahyo(hist_number, race, db)
         result_row = pd.DataFrame(
             [
                 [
                     field_mapper(race.track_code),
                     condition_mapper(race),
                     grade_mapper(race.grade_code),
+                    kyoso_joken_mapper(race.kyoso_joken_code),
                     (int(race.kyori) - 1000.0) / 2600.0,
                     int(race.shusso_tosu) / 18.0,
                 ]
             ],
-            columns=race_condition,
+            columns=initial_column,
         )
         result_df = race_df[["result"]].T.copy()
         result_df.columns = ["result" + str(i) for i in range(1, 19)]
@@ -296,6 +303,129 @@ class Fetcher:
         result_tensor = torch.from_numpy(np_result_row).float()
         self.horse_data = result_tensor
 
+    def setup_odds_df_db(self):
+        self.get_odds_from_db()
+        large_num = 1000000
+
+        tansho_odds = np.nan_to_num(self.tansho_odds, nan=large_num)
+        fukusho_odds_low = np.nan_to_num(
+            self.fukusho_odds_low, nan=large_num
+        )
+        fukusho_odds_up = np.nan_to_num(
+            self.fukusho_odds_up, nan=large_num
+        )
+        wide_odds_low = np.nan_to_num(self.wide_odds_low, nan=large_num)
+        wide_odds_up = np.nan_to_num(self.wide_odds_up, nan=large_num)
+        umaren_odds = np.nan_to_num(self.umaren_odds, nan=large_num)
+        umatan_odds = np.nan_to_num(self.umatan_odds, nan=large_num)
+        umatan_odds = np.where(
+            umatan_odds == 0, large_num, umatan_odds
+        )
+        wide_low_nagashi = (
+            1
+            / (
+                wide_odds_low
+                + wide_odds_low.T
+                + np.eye(self.toroku_tosu) * large_num
+            )
+        ).sum(axis=1)
+        wide_up_nagashi = (
+            1
+            / (
+                wide_odds_up
+                + wide_odds_up.T
+                + np.eye(self.toroku_tosu) * large_num
+            )
+        ).sum(axis=1)
+        umaren_nagashi = (
+            1
+            / (
+                umaren_odds
+                + umaren_odds.T
+                + np.eye(self.toroku_tosu) * large_num
+            )
+        ).sum(axis=1)
+        umatan_first_nagashi = (
+            1 / (umatan_odds + np.eye(self.toroku_tosu) * large_num)
+        ).sum(axis=1)
+
+        umatan_second_nagashi = (
+            1 / (umatan_odds + np.eye(self.toroku_tosu) * large_num)
+        ).sum(axis=0)
+
+        sanrenpuku_odds = np.nan_to_num(
+            self.sanrenpuku_odds, nan=large_num
+        )
+        sanrenpuku_sime = (
+            sanrenpuku_odds
+            + np.transpose(sanrenpuku_odds, (0, 2, 1))
+            + np.transpose(sanrenpuku_odds, (1, 0, 2))
+            + np.transpose(sanrenpuku_odds, (1, 2, 0))
+            + np.transpose(sanrenpuku_odds, (2, 0, 1))
+            + np.transpose(sanrenpuku_odds, (2, 1, 0))
+        )
+        sanrenpuku_sime = np.where(
+            sanrenpuku_sime == 0, large_num, sanrenpuku_sime
+        )
+        sanrenpuku_nagashi = (1 / sanrenpuku_sime).sum(axis=(1, 2))
+
+        sanrentan_odds = np.nan_to_num(
+            self.sanrentan_odds, nan=large_num
+        )
+        sanrentan = np.where(
+            sanrentan_odds == 0, large_num, sanrentan_odds
+        )
+        sanrentan_inv = 1 / sanrentan
+        sanrentan_first_nagashi = sanrentan_inv.sum(axis=(1, 2))
+        sanrentan_second_nagashi = sanrentan_inv.sum(axis=(0, 2))
+        sanrentan_third_nagashi = sanrentan_inv.sum(axis=(0, 1))
+
+        odds_df = pd.DataFrame(
+            {
+                "tansho": 1 / tansho_odds,
+                "fukusho_low": 1 / fukusho_odds_low,
+                "fukusho_high": 1 / fukusho_odds_up,
+                "wide_nagashi_low": wide_low_nagashi,
+                "wide_nagashi_high": wide_up_nagashi,
+                "umaren_nagashi": umaren_nagashi,
+                "umatan_first_nagashi": umatan_first_nagashi,
+                "umatan_second_nagashi": umatan_second_nagashi,
+                "sanrenpuku_nagashi": sanrenpuku_nagashi,
+                "sanrentan_first_nagashi": sanrentan_first_nagashi,
+                "sanrentan_second_nagashi": sanrentan_second_nagashi,
+                "sanrentan_third_nagashi": sanrentan_third_nagashi,
+            }
+        )
+        if self.toroku_tosu != 18:
+            zero_df = pd.DataFrame(
+                0.0,
+                index=list(range(int(self.toroku_tosu), 18)),
+                columns=odds_df.columns,
+            )
+            odds_df = pd.concat([odds_df, zero_df], axis=0)
+        row_index=0
+        one_race = pd.DataFrame(
+            {
+                "number_of_horse": int(self.toroku_tosu) / 18.0,
+            },
+            index=[row_index],
+        )
+        permu_list = list(range(0, 18))
+        swapped_race_df = odds_df.reindex(index=permu_list)
+
+        
+        for i in range(0, 18):
+            result_horse_columns = [
+                str(i) + column for column in swapped_race_df.columns
+            ]
+            result_horse_df = swapped_race_df.iloc[[i]].copy()
+            result_horse_df.index = [row_index]
+            result_horse_df.columns = result_horse_columns
+            one_race = pd.concat([one_race, result_horse_df], axis=1)
+
+        self.odds_df=one_race
+
+
     def get_recent_odds_from_jra(self):
         return asyncio.run(self.__get_recent_odds_from_jra())
 
@@ -310,6 +440,7 @@ class Fetcher:
                 await page.get_by_role("link", name="人気順").click()
             odds_table = page.locator("#odds_list table")
             shusso_tosu = await odds_table.locator("tbody tr").count()
+            self.shusso_tosu = shusso_tosu
             tansho_odds = np.zeros(shusso_tosu)
             fukusho_odds_low = np.zeros(shusso_tosu)
             fukusho_odds_up = np.zeros(shusso_tosu)
@@ -422,7 +553,7 @@ class Fetcher:
         return asyncio.run(self.__get_horse_data_from_jra())
 
     async def __get_horse_data_from_jra(self):
-        data = pd.DataFrame(0.0, index=[0], columns=final_df_columns)
+        data = pd.DataFrame(0.0, index=[0], columns=self.final_df_columns)
         async with playwright_context() as (browser, context):
             page = await context.new_page()
             await Fetcher.go_recent_race_odds(
@@ -531,7 +662,6 @@ class Fetcher:
                     / (8 * 365),
                     "seibetu": seibetu,
                     "bataiju": bataiju_standard(bataiju_raw),
-                    "blinker_shiyo_kubun": 0,
                     "futan_juryo": futan_juryo_standard(futan_juryo_row * 10),
                     "tansho_odds": 1 / tansho_odds_raw,
                     "tansho_ninkijun": 1 / tansho_ninki_raw,
@@ -544,7 +674,7 @@ class Fetcher:
                 ] = current_horse_dict.values()
 
                 hist = await horse_page.locator(
-                    "ul.unit_list.mt15 tbody tr"
+                    "ul.unit_list.mt15 div.race_detail tbody tr"
                 ).all()
                 hist_count = 0
                 for column in hist:
@@ -553,8 +683,6 @@ class Fetcher:
                         await column.locator("td").nth(7).inner_text()
                     )
                     ninki = await column.locator("td").nth(6).inner_text()
-                    print(ninki)
-                    print(await race_link.count())
                     if await race_link.count() == 0 or not ninki:
                         print("continue")
                         continue
@@ -658,21 +786,34 @@ class Fetcher:
                                     target_horse_time = hist_soha_time
                                     target_horse_last_3f = hist_last_3f
 
-                                    corner_3_raw = float_or_nan(
+                                    corner_3_raw = (
                                         await tr.locator("td.corner")
                                         .get_by_title("3コーナー通過順位")
-                                        .inner_text()
+                                        .count()
                                     )
-                                    if corner_3_raw:
-                                        corner_3 = corner_3_raw
-                                    corner_4_raw = float_or_nan(
+
+                                    if corner_3_raw > 0:
+                                        corner_3 = float_or_nan(
+                                            await tr.locator("td.corner")
+                                            .get_by_title("3コーナー通過順位")
+                                            .inner_text()
+                                        )
+                                    else:
+                                        corner_3 = -1
+                                    corner_4_raw = (
                                         await tr.locator("td.corner")
                                         .get_by_title("4コーナー通過順位")
-                                        .inner_text()
+                                        .count()
                                     )
-                                    if corner_4_raw:
-                                        corner_4 = corner_4_raw
 
+                                    if corner_4_raw:
+                                        corner_4 = float_or_nan(
+                                            await tr.locator("td.corner")
+                                            .get_by_title("4コーナー通過順位")
+                                            .inner_text()
+                                        )
+                                    else:
+                                        corner_4 = -1
                                     target_horse_umaban = int(
                                         await tr.locator("td.num").inner_text()
                                     )
@@ -705,7 +846,6 @@ class Fetcher:
                             "barei": (hist_date - seinengappi).days
                             / (8 * 365),
                             "bataiju": bataiju_standard(hist_bataiju_raw),
-                            "blinker_shiyo_kubun": 0,
                             "futan_juryo": futan_juryo_standard(
                                 kinryo_raw * 10
                             ),
@@ -736,13 +876,13 @@ class Fetcher:
                         async with page.expect_navigation():
                             await page.go_back()
                         hist_count += 1
-                    if hist_count == hist_number:
+                    if hist_count == self.hist_number:
                         break
                 async with page.expect_navigation():
                     await page.go_back()
 
             print(data)
-            data.to_csv(f"{self.path}/horsedata.csv")
+            # data.to_csv(f"{self.path}/horsedata.csv")
             np_data = data.to_numpy()
             tensor_data = torch.from_numpy(np_data).float()
             self.horse_data = tensor_data
